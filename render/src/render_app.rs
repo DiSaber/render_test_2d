@@ -11,25 +11,25 @@ use winit::{
     window::{Window, WindowAttributes, WindowId},
 };
 
-pub struct RenderApp<'a, T, U>
+pub struct RenderApp<T, U>
 where
     T: FnMut(Duration),
     U: FnMut(Duration),
 {
     window: Option<Arc<Window>>,
     window_attributes: Option<WindowAttributes>,
-    before_render: &'a mut T,
-    after_render: &'a mut U,
+    before_render: Option<T>,
+    after_render: Option<U>,
     last_render: Instant,
 }
 
-impl<'a, T, U> RenderApp<'a, T, U>
+impl<T, U> RenderApp<T, U>
 where
     T: FnMut(Duration),
     U: FnMut(Duration),
 {
     /// Creates a new render app with update loop callbacks that are executed before and after rendering
-    pub fn new(before_render: &'a mut T, after_render: &'a mut U) -> Self {
+    pub fn new(before_render: Option<T>, after_render: Option<U>) -> Self {
         Self {
             window: None,
             window_attributes: None,
@@ -54,7 +54,7 @@ where
     }
 }
 
-impl<T, U> ApplicationHandler for RenderApp<'_, T, U>
+impl<T, U> ApplicationHandler for RenderApp<T, U>
 where
     T: FnMut(Duration),
     U: FnMut(Duration),
@@ -84,11 +84,15 @@ where
                 let elapsed = self.last_render.elapsed();
                 self.last_render = Instant::now();
 
-                (self.before_render)(elapsed);
+                if let Some(before_render) = &mut self.before_render {
+                    before_render(elapsed);
+                }
 
                 window.request_redraw();
 
-                (self.after_render)(elapsed);
+                if let Some(after_render) = &mut self.after_render {
+                    after_render(elapsed);
+                }
             }
             WindowEvent::Resized(_size) => {}
             _ => (),
