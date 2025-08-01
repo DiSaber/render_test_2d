@@ -1,0 +1,15 @@
+[workspace]
+members = ["render"]
+
+[package]
+name = "render_test_2d"
+version = "0.1.0"
+edition = "2024"
+
+[dependencies]
+render = { path = "./render" }
+
+[profile.release]
+lto = "fat"
+codegen-units = 1
+strip = true

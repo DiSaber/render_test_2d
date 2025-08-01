@@ -1,0 +1,9 @@
+[package]
+name = "render"
+version = "0.1.0"
+edition = "2024"
+
+[dependencies]
+bytemuck = "1.23.1"
+wgpu = "26.0.1"
+winit = "0.30.12"
