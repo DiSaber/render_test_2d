@@ -182,23 +182,6 @@ impl RenderPipeline {
 
         let shader = device.create_shader_module(wgpu::include_wgsl!("main_shader.wgsl"));
 
-        let vertex_buffers = [wgpu::VertexBufferLayout {
-            array_stride: size_of::<GpuVertex>() as wgpu::BufferAddress,
-            step_mode: wgpu::VertexStepMode::Vertex,
-            attributes: &[
-                wgpu::VertexAttribute {
-                    format: wgpu::VertexFormat::Float32x4,
-                    offset: 0,
-                    shader_location: 0,
-                },
-                wgpu::VertexAttribute {
-                    format: wgpu::VertexFormat::Float32x2,
-                    offset: 4 * 4,
-                    shader_location: 1,
-                },
-            ],
-        }];
-
         let pipeline = device.create_render_pipeline(&wgpu::RenderPipelineDescriptor {
             label: None,
             layout: Some(&pipeline_layout),
@@ -206,7 +189,7 @@ impl RenderPipeline {
                 module: &shader,
                 entry_point: Some("vs_main"),
                 compilation_options: Default::default(),
-                buffers: &vertex_buffers,
+                buffers: &[GpuVertex::layout()],
             },
             fragment: Some(wgpu::FragmentState {
                 module: &shader,
