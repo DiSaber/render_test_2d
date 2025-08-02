@@ -1,10 +1,10 @@
 use std::sync::Arc;
 
-use glam::{Vec2, Vec3};
+use glam::{Mat4, Quat, Vec2, Vec3};
 use wgpu::util::DeviceExt;
 use winit::{dpi::PhysicalSize, window::Window};
 
-use crate::vertex::GpuVertex;
+use crate::{instance::Instance, render_state::RenderState, vertex::GpuVertex};
 
 const QUAD_VERTICES: [GpuVertex; 4] = [
     GpuVertex::new(Vec3::new(0.5, 0.5, 0.0), Vec2::new(1.0, 1.0)),
@@ -22,11 +22,12 @@ pub(crate) struct RenderPipeline {
     window: Arc<Window>,
     surface: wgpu::Surface<'static>,
     surface_config: wgpu::SurfaceConfiguration,
-    quad_vertex_buf: wgpu::Buffer,
-    quad_index_buf: wgpu::Buffer,
+    quad_vertex_buffer: wgpu::Buffer,
+    quad_index_buffer: wgpu::Buffer,
     bind_group: wgpu::BindGroup,
-    uniform_buf: wgpu::Buffer,
+    uniform_buffer: wgpu::Buffer,
     pipeline: wgpu::RenderPipeline,
+    pub render_state: RenderState,
 }
 
 impl RenderPipeline {
@@ -59,13 +60,13 @@ impl RenderPipeline {
 
         surface.configure(&device, &surface_config);
 
-        let quad_vertex_buf = device.create_buffer_init(&wgpu::util::BufferInitDescriptor {
+        let quad_vertex_buffer = device.create_buffer_init(&wgpu::util::BufferInitDescriptor {
             label: Some("Vertex Buffer"),
             contents: bytemuck::cast_slice(&QUAD_VERTICES),
             usage: wgpu::BufferUsages::VERTEX,
         });
 
-        let quad_index_buf = device.create_buffer_init(&wgpu::util::BufferInitDescriptor {
+        let quad_index_buffer = device.create_buffer_init(&wgpu::util::BufferInitDescriptor {
             label: Some("Index Buffer"),
             contents: bytemuck::cast_slice(&QUAD_INDICES),
             usage: wgpu::BufferUsages::INDEX,
@@ -159,7 +160,7 @@ impl RenderPipeline {
             -10.0,
             10.0,
         );
-        let uniform_buf = device.create_buffer_init(&wgpu::util::BufferInitDescriptor {
+        let uniform_buffer = device.create_buffer_init(&wgpu::util::BufferInitDescriptor {
             label: Some("Uniform Buffer"),
             contents: bytemuck::cast_slice(view_matrix.as_ref()),
             usage: wgpu::BufferUsages::UNIFORM | wgpu::BufferUsages::COPY_DST,
@@ -170,7 +171,7 @@ impl RenderPipeline {
             entries: &[
                 wgpu::BindGroupEntry {
                     binding: 0,
-                    resource: uniform_buf.as_entire_binding(),
+                    resource: uniform_buffer.as_entire_binding(),
                 },
                 wgpu::BindGroupEntry {
                     binding: 1,
@@ -189,7 +190,7 @@ impl RenderPipeline {
                 module: &shader,
                 entry_point: Some("vs_main"),
                 compilation_options: Default::default(),
-                buffers: &[GpuVertex::layout()],
+                buffers: &[GpuVertex::layout(), Instance::layout()],
             },
             fragment: Some(wgpu::FragmentState {
                 module: &shader,
@@ -207,17 +208,30 @@ impl RenderPipeline {
             cache: None,
         });
 
+        let render_state = RenderState::new(
+            &device,
+            vec![
+                Instance::new(Mat4::IDENTITY),
+                Instance::new(Mat4::from_scale_rotation_translation(
+                    Vec3::splat(2.0),
+                    Quat::IDENTITY,
+                    Vec3::new(3.0, 0.0, 0.0),
+                )),
+            ],
+        );
+
         Some(Self {
             device,
             queue,
             window,
             surface,
             surface_config,
-            quad_vertex_buf,
-            quad_index_buf,
+            quad_vertex_buffer,
+            quad_index_buffer,
             bind_group,
-            uniform_buf,
+            uniform_buffer,
             pipeline,
+            render_state,
         })
     }
 
@@ -238,7 +252,7 @@ impl RenderPipeline {
         );
 
         self.queue.write_buffer(
-            &self.uniform_buf,
+            &self.uniform_buffer,
             0,
             bytemuck::cast_slice(view_matrix.as_ref()),
         );
@@ -281,13 +295,17 @@ impl RenderPipeline {
                 occlusion_query_set: None,
             });
 
-            rpass.set_pipeline(&self.pipeline);
-            rpass.set_bind_group(0, &self.bind_group, &[]);
+            let instances = self.render_state.get_instances();
+            if instances.len() > 0 {
+                rpass.set_pipeline(&self.pipeline);
+                rpass.set_bind_group(0, &self.bind_group, &[]);
 
-            rpass.set_index_buffer(self.quad_index_buf.slice(..), wgpu::IndexFormat::Uint16);
-            rpass.set_vertex_buffer(0, self.quad_vertex_buf.slice(..));
+                rpass.set_index_buffer(self.quad_index_buffer.slice(..), wgpu::IndexFormat::Uint16);
+                rpass.set_vertex_buffer(0, self.quad_vertex_buffer.slice(..));
+                rpass.set_vertex_buffer(1, self.render_state.get_instance_buffer().slice(..));
 
-            rpass.draw_indexed(0..QUAD_INDICES.len() as u32, 0, 0..1);
+                rpass.draw_indexed(0..QUAD_INDICES.len() as u32, 0, 0..instances.len() as u32);
+            }
         }
 
         self.queue.submit(Some(encoder.finish()));

@@ -4,13 +4,16 @@ use glam::{Vec2, Vec3};
 #[repr(C)]
 #[derive(Debug, Clone, Copy, Pod, Zeroable, Default)]
 pub(crate) struct GpuVertex {
-    pub(crate) position: Vec3,
-    pub(crate) texcoord: Vec2,
+    pub(crate) position: [f32; 3],
+    pub(crate) texcoord: [f32; 2],
 }
 
 impl GpuVertex {
     pub(crate) const fn new(position: Vec3, texcoord: Vec2) -> Self {
-        Self { position, texcoord }
+        Self {
+            position: position.to_array(),
+            texcoord: texcoord.to_array(),
+        }
     }
 
     const ATTRIBUTES: [wgpu::VertexAttribute; 2] =
@@ -18,7 +21,7 @@ impl GpuVertex {
 
     pub(crate) const fn layout() -> wgpu::VertexBufferLayout<'static> {
         wgpu::VertexBufferLayout {
-            array_stride: std::mem::size_of::<GpuVertex>() as wgpu::BufferAddress,
+            array_stride: std::mem::size_of::<Self>() as wgpu::BufferAddress,
             step_mode: wgpu::VertexStepMode::Vertex,
             attributes: &Self::ATTRIBUTES,
         }
