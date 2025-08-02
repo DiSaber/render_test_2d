@@ -53,8 +53,6 @@ where
 
     /// Runs the app and returns the winit event loop error if any occurs
     pub fn run_app(&mut self) -> Result<(), EventLoopError> {
-        self.last_render = Instant::now(); // Set the instant right before the rendering starts
-
         let event_loop = EventLoop::new().unwrap();
         event_loop.set_control_flow(ControlFlow::Poll);
         event_loop.run_app(self)
@@ -78,6 +76,7 @@ where
             pollster::block_on(RenderPipeline::new(window.clone())).unwrap(),
         ));
 
+        self.last_render = Instant::now(); // Set the instant right before the rendering starts
         window.request_redraw(); // Kick off rendering
     }
 
