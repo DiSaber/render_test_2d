@@ -31,7 +31,7 @@ pub(crate) struct RenderPipeline {
 
 impl RenderPipeline {
     /// Creates a new render pipeline
-    pub(crate) async fn new(window: Arc<Window>) -> Option<Self> {
+    pub async fn new(window: Arc<Window>) -> Option<Self> {
         let instance = wgpu::Instance::new(&wgpu::InstanceDescriptor::default());
         let adapter = instance
             .request_adapter(&wgpu::RequestAdapterOptions::default())
@@ -234,7 +234,7 @@ impl RenderPipeline {
         ))
     }
 
-    pub(crate) fn resize(&mut self, new_size: PhysicalSize<u32>) {
+    pub fn resize(&mut self, new_size: PhysicalSize<u32>) {
         self.surface_config.width = new_size.width.max(1);
         self.surface_config.height = new_size.height.max(1);
 
@@ -244,7 +244,7 @@ impl RenderPipeline {
             .update_uniforms(&self.queue, Self::create_uniforms(&self.surface_config));
     }
 
-    pub(crate) fn render(&mut self) {
+    pub fn render(&mut self) {
         let surface_texture = self
             .surface
             .get_current_texture()
