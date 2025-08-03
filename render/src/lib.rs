@@ -1,3 +1,4 @@
+mod array_buffer;
 mod instance;
 mod render_app;
 mod render_pipeline;

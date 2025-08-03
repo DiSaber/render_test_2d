@@ -175,7 +175,10 @@ impl RenderPipeline {
             entries: &[
                 wgpu::BindGroupEntry {
                     binding: 0,
-                    resource: render_state.get_uniform_buffer().as_entire_binding(),
+                    resource: render_state
+                        .get_uniform_buffer()
+                        .get_buffer()
+                        .as_entire_binding(),
                 },
                 wgpu::BindGroupEntry {
                     binding: 1,
@@ -293,16 +296,20 @@ impl RenderPipeline {
                 occlusion_query_set: None,
             });
 
-            let instance_count = self.render_state.get_instance_count();
-            if instance_count > 0 {
+            let instance_buffer = self.render_state.get_instance_buffer();
+            if instance_buffer.len() > 0 {
                 rpass.set_pipeline(&self.pipeline);
                 rpass.set_bind_group(0, &self.bind_group, &[]);
 
                 rpass.set_index_buffer(self.quad_index_buffer.slice(..), wgpu::IndexFormat::Uint16);
                 rpass.set_vertex_buffer(0, self.quad_vertex_buffer.slice(..));
-                rpass.set_vertex_buffer(1, self.render_state.get_instance_buffer().slice(..));
+                rpass.set_vertex_buffer(1, instance_buffer.get_buffer().slice(..));
 
-                rpass.draw_indexed(0..QUAD_INDICES.len() as u32, 0, 0..instance_count as u32);
+                rpass.draw_indexed(
+                    0..QUAD_INDICES.len() as u32,
+                    0,
+                    0..instance_buffer.len() as u32,
+                );
             }
         }
 
