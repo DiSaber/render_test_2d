@@ -4,18 +4,19 @@ use glam::Mat4;
 #[repr(C)]
 #[derive(Debug, Clone, Copy, Pod, Zeroable, Default)]
 pub(crate) struct Instance {
-    pub transform: [[f32; 4]; 4],
+    /// Transposed affine matrix (last row is 0,0,0,1)
+    pub transform: [[f32; 4]; 3],
 }
 
 impl Instance {
     pub fn new(transform: Mat4) -> Self {
         Self {
-            transform: transform.to_cols_array_2d(),
+            transform: pack_transform(transform),
         }
     }
 
-    const ATTRIBUTES: [wgpu::VertexAttribute; 4] =
-        wgpu::vertex_attr_array![2 => Float32x4, 3 => Float32x4, 4 => Float32x4, 5 => Float32x4];
+    const ATTRIBUTES: [wgpu::VertexAttribute; 3] =
+        wgpu::vertex_attr_array![2 => Float32x4, 3 => Float32x4, 4 => Float32x4];
 
     pub const fn layout() -> wgpu::VertexBufferLayout<'static> {
         wgpu::VertexBufferLayout {
@@ -24,4 +25,14 @@ impl Instance {
             attributes: &Self::ATTRIBUTES,
         }
     }
+}
+
+fn pack_transform(mut transform: Mat4) -> [[f32; 4]; 3] {
+    transform = transform.transpose();
+
+    [
+        transform.x_axis.to_array(),
+        transform.y_axis.to_array(),
+        transform.z_axis.to_array(),
+    ]
 }

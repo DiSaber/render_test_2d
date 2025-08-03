@@ -11,7 +11,6 @@ struct InstanceInput {
     @location(2) mat_0: vec4<f32>,
     @location(3) mat_1: vec4<f32>,
     @location(4) mat_2: vec4<f32>,
-    @location(5) mat_3: vec4<f32>,
 };
 
 struct VertexOutput {
@@ -24,12 +23,12 @@ fn vs_main(
     vertex: VertexInput,
     instance: InstanceInput,
 ) -> VertexOutput {
-    let instance_matrix = mat4x4<f32>(
+    let instance_matrix = transpose(mat4x4<f32>(
         instance.mat_0,
         instance.mat_1,
         instance.mat_2,
-        instance.mat_3
-    );
+        vec4<f32>(0.0, 0.0, 0.0, 1.0)
+    ));
 
     var result: VertexOutput;
     result.tex_coord = vertex.tex_coord;
