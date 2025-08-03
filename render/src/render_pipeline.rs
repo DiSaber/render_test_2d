@@ -4,7 +4,12 @@ use glam::{Mat4, Quat, Vec2, Vec3};
 use wgpu::util::DeviceExt;
 use winit::{dpi::PhysicalSize, window::Window};
 
-use crate::{instance::Instance, render_state::RenderState, uniforms::Uniforms, vertex::GpuVertex};
+use crate::{
+    instance::Instance,
+    render_state::{RenderState, UpdateRenderState},
+    uniforms::Uniforms,
+    vertex::GpuVertex,
+};
 
 const QUAD_VERTICES: [GpuVertex; 4] = [
     GpuVertex::new(Vec3::new(0.5, 0.5, 0.0), Vec2::new(1.0, 1.0)),
@@ -239,12 +244,19 @@ impl RenderPipeline {
         self.surface_config.height = new_size.height.max(1);
 
         self.surface.configure(&self.device, &self.surface_config);
-
-        self.render_state
-            .update_uniforms(&self.queue, Self::create_uniforms(&self.surface_config));
     }
 
     pub fn render(&mut self) {
+        // Temporary
+        self.render_state.update_render_state(
+            &self.device,
+            &self.queue,
+            UpdateRenderState {
+                uniforms: Some(Self::create_uniforms(&self.surface_config)),
+                ..Default::default()
+            },
+        );
+
         let surface_texture = self
             .surface
             .get_current_texture()

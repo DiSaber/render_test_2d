@@ -28,27 +28,30 @@ impl RenderState {
         }
     }
 
-    pub fn update_uniforms(&self, queue: &wgpu::Queue, uniforms: Uniforms) {
-        queue.write_buffer(&self.uniform_buffer, 0, bytemuck::cast_slice(&[uniforms]));
-    }
-
-    pub fn update_instances(
+    pub fn update_render_state(
         &mut self,
         device: &wgpu::Device,
         queue: &wgpu::Queue,
-        instances: Vec<Instance>,
+        update_render_state: UpdateRenderState,
     ) {
-        if instances.len() > self.instance_count {
-            self.instance_buffer = device.create_buffer_init(&wgpu::util::BufferInitDescriptor {
-                label: Some("Instance Buffer"),
-                contents: bytemuck::cast_slice(&instances),
-                usage: wgpu::BufferUsages::VERTEX,
-            });
-        } else {
-            queue.write_buffer(&self.instance_buffer, 0, bytemuck::cast_slice(&instances));
+        if let Some(uniforms) = update_render_state.uniforms {
+            queue.write_buffer(&self.uniform_buffer, 0, bytemuck::cast_slice(&[uniforms]));
         }
 
-        self.instance_count = instances.len()
+        if let Some(instances) = update_render_state.instances {
+            if instances.len() > self.instance_count {
+                self.instance_buffer =
+                    device.create_buffer_init(&wgpu::util::BufferInitDescriptor {
+                        label: Some("Instance Buffer"),
+                        contents: bytemuck::cast_slice(&instances),
+                        usage: wgpu::BufferUsages::VERTEX,
+                    });
+            } else {
+                queue.write_buffer(&self.instance_buffer, 0, bytemuck::cast_slice(&instances));
+            }
+
+            self.instance_count = instances.len()
+        }
     }
 
     pub fn get_uniform_buffer(&self) -> &wgpu::Buffer {
@@ -62,4 +65,10 @@ impl RenderState {
     pub fn get_instance_count(&self) -> usize {
         self.instance_count
     }
+}
+
+#[derive(Debug, Clone, Default)]
+pub(crate) struct UpdateRenderState {
+    pub uniforms: Option<Uniforms>,
+    pub instances: Option<Vec<Instance>>,
 }
