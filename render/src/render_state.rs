@@ -1,30 +1,46 @@
-use crate::instance::Instance;
+use crate::{instance::Instance, uniforms::Uniforms};
 use wgpu::util::DeviceExt;
 
 pub(crate) struct RenderState {
-    instances: Vec<Instance>,
+    uniform_buffer: wgpu::Buffer,
     instance_buffer: wgpu::Buffer,
+    instance_count: usize,
 }
 
 impl RenderState {
-    pub(crate) fn new(device: &wgpu::Device, instances: Vec<Instance>) -> Self {
+    pub fn new(device: &wgpu::Device, uniforms: Uniforms, instances: Vec<Instance>) -> Self {
+        let uniform_buffer = device.create_buffer_init(&wgpu::util::BufferInitDescriptor {
+            label: Some("Uniform Buffer"),
+            contents: bytemuck::cast_slice(&[uniforms]),
+            usage: wgpu::BufferUsages::UNIFORM | wgpu::BufferUsages::COPY_DST,
+        });
+
         let instance_buffer = device.create_buffer_init(&wgpu::util::BufferInitDescriptor {
-            label: Some("Vertex Buffer"),
+            label: Some("Instance Buffer"),
             contents: bytemuck::cast_slice(&instances),
             usage: wgpu::BufferUsages::VERTEX,
         });
 
         Self {
-            instances,
+            uniform_buffer,
             instance_buffer,
+            instance_count: instances.len(),
         }
     }
 
-    pub(crate) fn get_instances(&self) -> &[Instance] {
-        &self.instances
+    pub fn update_uniforms(&self, queue: &wgpu::Queue, uniforms: Uniforms) {
+        queue.write_buffer(&self.uniform_buffer, 0, bytemuck::cast_slice(&[uniforms]));
     }
 
-    pub(crate) fn get_instance_buffer(&self) -> &wgpu::Buffer {
+    pub fn get_uniform_buffer(&self) -> &wgpu::Buffer {
+        &self.uniform_buffer
+    }
+
+    pub fn get_instance_buffer(&self) -> &wgpu::Buffer {
         &self.instance_buffer
+    }
+
+    pub fn get_instance_count(&self) -> usize {
+        self.instance_count
     }
 }

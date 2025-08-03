@@ -4,7 +4,7 @@ use glam::{Mat4, Quat, Vec2, Vec3};
 use wgpu::util::DeviceExt;
 use winit::{dpi::PhysicalSize, window::Window};
 
-use crate::{instance::Instance, render_state::RenderState, vertex::GpuVertex};
+use crate::{instance::Instance, render_state::RenderState, uniforms::Uniforms, vertex::GpuVertex};
 
 const QUAD_VERTICES: [GpuVertex; 4] = [
     GpuVertex::new(Vec3::new(0.5, 0.5, 0.0), Vec2::new(1.0, 1.0)),
@@ -25,7 +25,6 @@ pub(crate) struct RenderPipeline {
     quad_vertex_buffer: wgpu::Buffer,
     quad_index_buffer: wgpu::Buffer,
     bind_group: wgpu::BindGroup,
-    uniform_buffer: wgpu::Buffer,
     pipeline: wgpu::RenderPipeline,
     pub render_state: RenderState,
 }
@@ -60,6 +59,19 @@ impl RenderPipeline {
 
         surface.configure(&device, &surface_config);
 
+        let render_state = RenderState::new(
+            &device,
+            Self::create_uniforms(&surface_config),
+            vec![
+                Instance::new(Mat4::IDENTITY),
+                Instance::new(Mat4::from_scale_rotation_translation(
+                    Vec3::splat(2.0),
+                    Quat::IDENTITY,
+                    Vec3::new(3.0, 0.0, 0.0),
+                )),
+            ],
+        );
+
         let quad_vertex_buffer = device.create_buffer_init(&wgpu::util::BufferInitDescriptor {
             label: Some("Vertex Buffer"),
             contents: bytemuck::cast_slice(&QUAD_VERTICES),
@@ -81,7 +93,9 @@ impl RenderPipeline {
                     ty: wgpu::BindingType::Buffer {
                         ty: wgpu::BufferBindingType::Uniform,
                         has_dynamic_offset: false,
-                        min_binding_size: wgpu::BufferSize::new(64),
+                        min_binding_size: wgpu::BufferSize::new(
+                            std::mem::size_of::<Uniforms>() as u64
+                        ),
                     },
                     count: None,
                 },
@@ -151,27 +165,12 @@ impl RenderPipeline {
             texture_extent,
         );
 
-        let aspect_ratio = surface_config.width as f32 / surface_config.height as f32;
-        let view_matrix = glam::Mat4::orthographic_rh(
-            -aspect_ratio * VERTICAL_SCALE * 0.5,
-            aspect_ratio * VERTICAL_SCALE * 0.5,
-            -VERTICAL_SCALE * 0.5,
-            VERTICAL_SCALE * 0.5,
-            -10.0,
-            10.0,
-        );
-        let uniform_buffer = device.create_buffer_init(&wgpu::util::BufferInitDescriptor {
-            label: Some("Uniform Buffer"),
-            contents: bytemuck::cast_slice(view_matrix.as_ref()),
-            usage: wgpu::BufferUsages::UNIFORM | wgpu::BufferUsages::COPY_DST,
-        });
-
         let bind_group = device.create_bind_group(&wgpu::BindGroupDescriptor {
             layout: &bind_group_layout,
             entries: &[
                 wgpu::BindGroupEntry {
                     binding: 0,
-                    resource: uniform_buffer.as_entire_binding(),
+                    resource: render_state.get_uniform_buffer().as_entire_binding(),
                 },
                 wgpu::BindGroupEntry {
                     binding: 1,
@@ -208,18 +207,6 @@ impl RenderPipeline {
             cache: None,
         });
 
-        let render_state = RenderState::new(
-            &device,
-            vec![
-                Instance::new(Mat4::IDENTITY),
-                Instance::new(Mat4::from_scale_rotation_translation(
-                    Vec3::splat(2.0),
-                    Quat::IDENTITY,
-                    Vec3::new(3.0, 0.0, 0.0),
-                )),
-            ],
-        );
-
         Some(Self {
             device,
             queue,
@@ -229,10 +216,22 @@ impl RenderPipeline {
             quad_vertex_buffer,
             quad_index_buffer,
             bind_group,
-            uniform_buffer,
             pipeline,
             render_state,
         })
+    }
+
+    // Temporary
+    pub fn create_uniforms(surface_config: &wgpu::SurfaceConfiguration) -> Uniforms {
+        let aspect_ratio = surface_config.width as f32 / surface_config.height as f32;
+        Uniforms::new(glam::Mat4::orthographic_rh(
+            -aspect_ratio * VERTICAL_SCALE * 0.5,
+            aspect_ratio * VERTICAL_SCALE * 0.5,
+            -VERTICAL_SCALE * 0.5,
+            VERTICAL_SCALE * 0.5,
+            -10.0,
+            10.0,
+        ))
     }
 
     pub(crate) fn resize(&mut self, new_size: PhysicalSize<u32>) {
@@ -241,21 +240,8 @@ impl RenderPipeline {
 
         self.surface.configure(&self.device, &self.surface_config);
 
-        let aspect_ratio = self.surface_config.width as f32 / self.surface_config.height as f32;
-        let view_matrix = glam::Mat4::orthographic_rh(
-            -aspect_ratio * VERTICAL_SCALE * 0.5,
-            aspect_ratio * VERTICAL_SCALE * 0.5,
-            -VERTICAL_SCALE * 0.5,
-            VERTICAL_SCALE * 0.5,
-            -10.0,
-            10.0,
-        );
-
-        self.queue.write_buffer(
-            &self.uniform_buffer,
-            0,
-            bytemuck::cast_slice(view_matrix.as_ref()),
-        );
+        self.render_state
+            .update_uniforms(&self.queue, Self::create_uniforms(&self.surface_config));
     }
 
     pub(crate) fn render(&mut self) {
@@ -295,8 +281,8 @@ impl RenderPipeline {
                 occlusion_query_set: None,
             });
 
-            let instances = self.render_state.get_instances();
-            if instances.len() > 0 {
+            let instance_count = self.render_state.get_instance_count();
+            if instance_count > 0 {
                 rpass.set_pipeline(&self.pipeline);
                 rpass.set_bind_group(0, &self.bind_group, &[]);
 
@@ -304,7 +290,7 @@ impl RenderPipeline {
                 rpass.set_vertex_buffer(0, self.quad_vertex_buffer.slice(..));
                 rpass.set_vertex_buffer(1, self.render_state.get_instance_buffer().slice(..));
 
-                rpass.draw_indexed(0..QUAD_INDICES.len() as u32, 0, 0..instances.len() as u32);
+                rpass.draw_indexed(0..QUAD_INDICES.len() as u32, 0, 0..instance_count as u32);
             }
         }
 
