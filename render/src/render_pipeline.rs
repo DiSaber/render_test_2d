@@ -29,6 +29,7 @@ pub(crate) struct RenderPipeline {
     surface_config: wgpu::SurfaceConfiguration,
     quad_vertex_buffer: wgpu::Buffer,
     quad_index_buffer: wgpu::Buffer,
+    depth_texture: wgpu::TextureView,
     bind_group: wgpu::BindGroup,
     pipeline: wgpu::RenderPipeline,
     pub render_state: RenderState,
@@ -72,7 +73,7 @@ impl RenderPipeline {
                 Instance::new(Mat4::from_scale_rotation_translation(
                     Vec3::splat(2.0),
                     Quat::IDENTITY,
-                    Vec3::new(3.0, 0.0, 0.0),
+                    Vec3::new(1.0, 0.0, -1.0),
                 )),
             ],
         );
@@ -88,6 +89,8 @@ impl RenderPipeline {
             contents: bytemuck::cast_slice(&QUAD_INDICES),
             usage: wgpu::BufferUsages::INDEX,
         });
+
+        let depth_texture = Self::create_depth_texture(&device, &surface_config);
 
         let bind_group_layout = device.create_bind_group_layout(&wgpu::BindGroupLayoutDescriptor {
             label: None,
@@ -209,7 +212,13 @@ impl RenderPipeline {
                 cull_mode: Some(wgpu::Face::Back),
                 ..Default::default()
             },
-            depth_stencil: None,
+            depth_stencil: Some(wgpu::DepthStencilState {
+                format: wgpu::TextureFormat::Depth32Float,
+                depth_write_enabled: true,
+                depth_compare: wgpu::CompareFunction::Less,
+                stencil: wgpu::StencilState::default(),
+                bias: wgpu::DepthBiasState::default(),
+            }),
             multisample: wgpu::MultisampleState::default(),
             multiview: None,
             cache: None,
@@ -223,14 +232,37 @@ impl RenderPipeline {
             surface_config,
             quad_vertex_buffer,
             quad_index_buffer,
+            depth_texture,
             bind_group,
             pipeline,
             render_state,
         })
     }
 
+    fn create_depth_texture(
+        device: &wgpu::Device,
+        surface_config: &wgpu::SurfaceConfiguration,
+    ) -> wgpu::TextureView {
+        let texture = device.create_texture(&wgpu::TextureDescriptor {
+            label: Some("Depth Texture"),
+            size: wgpu::Extent3d {
+                width: surface_config.width,
+                height: surface_config.height,
+                depth_or_array_layers: 1,
+            },
+            mip_level_count: 1,
+            sample_count: 1,
+            dimension: wgpu::TextureDimension::D2,
+            format: wgpu::TextureFormat::Depth32Float,
+            usage: wgpu::TextureUsages::RENDER_ATTACHMENT | wgpu::TextureUsages::TEXTURE_BINDING,
+            view_formats: &[],
+        });
+
+        texture.create_view(&wgpu::TextureViewDescriptor::default())
+    }
+
     // Temporary
-    pub fn create_uniforms(surface_config: &wgpu::SurfaceConfiguration) -> Uniforms {
+    fn create_uniforms(surface_config: &wgpu::SurfaceConfiguration) -> Uniforms {
         let aspect_ratio = surface_config.width as f32 / surface_config.height as f32;
         Uniforms::new(glam::Mat4::orthographic_rh(
             -aspect_ratio * VERTICAL_SCALE * 0.5,
@@ -247,6 +279,8 @@ impl RenderPipeline {
         self.surface_config.height = new_size.height.max(1);
 
         self.surface.configure(&self.device, &self.surface_config);
+
+        self.depth_texture = Self::create_depth_texture(&self.device, &self.surface_config)
     }
 
     pub fn render(&mut self) {
@@ -291,7 +325,14 @@ impl RenderPipeline {
                         store: wgpu::StoreOp::Store,
                     },
                 })],
-                depth_stencil_attachment: None,
+                depth_stencil_attachment: Some(wgpu::RenderPassDepthStencilAttachment {
+                    view: &self.depth_texture,
+                    depth_ops: Some(wgpu::Operations {
+                        load: wgpu::LoadOp::Clear(1.0),
+                        store: wgpu::StoreOp::Store,
+                    }),
+                    stencil_ops: None,
+                }),
                 timestamp_writes: None,
                 occlusion_query_set: None,
             });
