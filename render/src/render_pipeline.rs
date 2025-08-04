@@ -23,6 +23,7 @@ const QUAD_INDICES: [u16; 6] = [0, 3, 2, 3, 0, 1];
 
 const VERTICAL_SCALE: f32 = 5.0;
 
+/// Holds the necessary state to draw frames to a window.
 pub(crate) struct RenderPipeline {
     device: wgpu::Device,
     queue: wgpu::Queue,
@@ -37,7 +38,7 @@ pub(crate) struct RenderPipeline {
 }
 
 impl RenderPipeline {
-    /// Creates a new render pipeline
+    /// Creates a new render pipeline that renders to the specified window.
     pub(crate) async fn new(window: Arc<Window>) -> Option<Self> {
         let instance = wgpu::Instance::new(&wgpu::InstanceDescriptor::default());
         let adapter = instance
@@ -246,6 +247,7 @@ impl RenderPipeline {
         ))
     }
 
+    /// Call this whenever the window size changes to update the surface and internal textures.
     pub(crate) fn resize(&mut self, new_size: PhysicalSize<u32>) {
         self.surface_config.width = new_size.width.max(1);
         self.surface_config.height = new_size.height.max(1);
@@ -255,6 +257,7 @@ impl RenderPipeline {
         self.depth_texture = Self::create_depth_texture(&self.device, &self.surface_config)
     }
 
+    /// Uses the current `RenderState` to draw a frame to the window.
     pub(crate) fn render(&mut self) {
         // Temporary
         self.render_state.update_render_state(
@@ -309,8 +312,8 @@ impl RenderPipeline {
                 occlusion_query_set: None,
             });
 
-            let instance_buffer = self.render_state.get_instance_buffer();
-            if instance_buffer.len() > 0 {
+            let instance_count = self.render_state.get_instance_count();
+            if instance_count > 0 {
                 render_pass.set_pipeline(&self.pipeline);
                 for (i, bind_group) in self.render_state.get_bind_groups().into_iter().enumerate() {
                     render_pass.set_bind_group(i as u32, bind_group, &[]);
@@ -320,11 +323,7 @@ impl RenderPipeline {
                     .set_index_buffer(self.quad_index_buffer.slice(..), wgpu::IndexFormat::Uint16);
                 render_pass.set_vertex_buffer(0, self.quad_vertex_buffer.slice(..));
 
-                render_pass.draw_indexed(
-                    0..QUAD_INDICES.len() as u32,
-                    0,
-                    0..instance_buffer.len() as u32,
-                );
+                render_pass.draw_indexed(0..QUAD_INDICES.len() as u32, 0, 0..instance_count as u32);
             }
         }
 

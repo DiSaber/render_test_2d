@@ -1,17 +1,22 @@
 use bytemuck::{Pod, Zeroable};
 use glam::Mat4;
 
+/// Holds instance data that will be passed to the shader.
 #[repr(C)]
 #[derive(Debug, Clone, Copy, Pod, Zeroable, Default)]
 pub(crate) struct Instance {
     /// Transposed affine matrix (last row is 0,0,0,1)
-    pub transform: [[f32; 4]; 3],
-    pub texture_index: u32,
-    pub sampler_index: u32,
+    pub(crate) transform: [[f32; 4]; 3],
+    /// The texture to use when drawing this instance.
+    pub(crate) texture_index: u32,
+    /// The sampler to use when sampling the texture.
+    pub(crate) sampler_index: u32,
     _padding: [u32; 2],
 }
 
 impl Instance {
+    /// Creates a new `Instance` with the provided options. (The transformation matrix will be
+    /// packed to save space)
     pub(crate) fn new(transform: Mat4, texture_index: u32, sampler_index: u32) -> Self {
         Self {
             transform: pack_transform(transform),

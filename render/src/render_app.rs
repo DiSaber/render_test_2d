@@ -13,20 +13,21 @@ use winit::{
 
 use crate::render_pipeline::RenderPipeline;
 
+/// Manages the winit event loop and `RenderPipeline`.
 pub struct RenderApp<T, U>
 where
     T: FnMut(Duration),
     U: FnMut(Duration),
 {
-    /// Initial window attributes
+    /// Initial window attributes.
     window_attributes: Option<WindowAttributes>,
-    /// Function that runs before the frame is drawn
+    /// Function that runs before the frame is drawn.
     before_render: Option<T>,
-    /// Function that runs after the frame is drawn
+    /// Function that runs after the frame is drawn.
     after_render: Option<U>,
-    /// The last instant the window was drawn to
+    /// The last instant the window was drawn to.
     last_render: Instant,
-    /// The current window and its render pipeline
+    /// The current window and its render pipeline.
     render_pipeline: Option<(Arc<Window>, RenderPipeline)>,
 }
 
@@ -35,7 +36,7 @@ where
     T: FnMut(Duration),
     U: FnMut(Duration),
 {
-    /// Creates a new render app with update loop callbacks that are executed before and after rendering
+    /// Creates a new render app with update loop callbacks that are executed before and after rendering.
     pub fn new(before_render: Option<T>, after_render: Option<U>) -> Self {
         Self {
             window_attributes: None,
@@ -46,12 +47,13 @@ where
         }
     }
 
+    /// Sets the window attributes.
     pub fn with_window_attributes(mut self, window_attributes: WindowAttributes) -> Self {
         self.window_attributes = Some(window_attributes);
         self
     }
 
-    /// Runs the app and returns the winit event loop error if any occurs
+    /// Runs the app and returns the winit event loop error if any occurs.
     pub fn run_app(&mut self) -> Result<(), EventLoopError> {
         let event_loop = EventLoop::new().unwrap();
         event_loop.set_control_flow(ControlFlow::Poll);

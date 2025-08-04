@@ -2,6 +2,7 @@ use bytemuck::Pod;
 use std::marker::PhantomData;
 use wgpu::util::DeviceExt;
 
+/// Manages a buffer containing an array of `T` that can be resized.
 pub(crate) struct ArrayBuffer<T> {
     buffer: wgpu::Buffer,
     capacity: usize,
@@ -14,7 +15,7 @@ impl<T> ArrayBuffer<T>
 where
     T: Pod,
 {
-    /// Creates a new buffer.
+    /// Creates a new `ArrayBuffer<T>` with the provided data and options.
     pub(crate) fn new(
         device: &wgpu::Device,
         label: Option<&str>,
@@ -36,9 +37,9 @@ where
         }
     }
 
-    /// Updates the buffer with new data and resizes it if the data doesn't fit. Returns if the
-    /// buffer was resized.
-    pub(crate) fn update_data(
+    /// Writes the buffer with new data or makes a new buffer if the new data doesn't fit. Returns if a
+    /// new buffer was made.
+    pub(crate) fn write_buffer(
         &mut self,
         device: &wgpu::Device,
         queue: &wgpu::Queue,
@@ -63,10 +64,12 @@ where
 }
 
 impl<T> ArrayBuffer<T> {
+    /// Gets the internal `wgpu::Buffer` holding the data.
     pub(crate) fn get_buffer(&self) -> &wgpu::Buffer {
         &self.buffer
     }
 
+    /// Gets the buffer length.
     pub(crate) fn len(&self) -> usize {
         self.length
     }

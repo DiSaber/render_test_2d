@@ -3,21 +3,28 @@ use std::num::NonZeroU32;
 use crate::{array_buffer::ArrayBuffer, instance::Instance, uniforms::Uniforms};
 use wgpu::util::DeviceExt;
 
+/// The maximum amount of textures allowed in the texture bind group.
 pub(crate) const MAX_BINDING_ARRAY_TEXTURES: NonZeroU32 = NonZeroU32::new(100).unwrap();
+/// The maximum amount of samplers allowed in the texture bind group.
 pub(crate) const MAX_BINDING_ARRAY_SAMPLERS: NonZeroU32 = NonZeroU32::new(10).unwrap();
 
+/// Manages the buffers and bind groups for a `RenderPipeline`.
 pub(crate) struct RenderState {
     uniform_buffer: wgpu::Buffer,
     uniform_bind_group_layout: wgpu::BindGroupLayout,
     uniform_bind_group: wgpu::BindGroup,
+    // --- //
     instance_buffer: ArrayBuffer<Instance>,
     instance_bind_group_layout: wgpu::BindGroupLayout,
     instance_bind_group: wgpu::BindGroup,
+    // --- //
     texture_bind_group_layout: wgpu::BindGroupLayout,
     texture_bind_group: wgpu::BindGroup,
 }
 
 impl RenderState {
+    /// Creates a new `RenderState` and initializes the buffers and bind groups with the provided
+    /// data.
     pub(crate) fn new(
         device: &wgpu::Device,
         uniforms: Uniforms,
@@ -138,6 +145,7 @@ impl RenderState {
         }
     }
 
+    /// Updates the buffers and bind groups with the provided data.
     pub(crate) fn update_render_state(
         &mut self,
         device: &wgpu::Device,
@@ -149,7 +157,7 @@ impl RenderState {
         }
 
         if let Some(instances) = update_render_state.instances {
-            if self.instance_buffer.update_data(device, queue, &instances) {
+            if self.instance_buffer.write_buffer(device, queue, &instances) {
                 // Buffer was resized, remake the bind group
                 self.instance_bind_group = device.create_bind_group(&wgpu::BindGroupDescriptor {
                     label: Some("Instance Bind Group"),
@@ -184,6 +192,7 @@ impl RenderState {
         }
     }
 
+    /// Gets the bind group layouts in order.
     pub(crate) fn get_bind_group_layouts(&self) -> [&wgpu::BindGroupLayout; 3] {
         [
             &self.uniform_bind_group_layout,
@@ -192,6 +201,7 @@ impl RenderState {
         ]
     }
 
+    /// Gets the bind groups in order.
     pub(crate) fn get_bind_groups(&self) -> [&wgpu::BindGroup; 3] {
         [
             &self.uniform_bind_group,
@@ -200,14 +210,16 @@ impl RenderState {
         ]
     }
 
-    pub(crate) fn get_instance_buffer(&self) -> &ArrayBuffer<Instance> {
-        &self.instance_buffer
+    /// Gets the amount of instances currently in the instance buffer.
+    pub(crate) fn get_instance_count(&self) -> usize {
+        self.instance_buffer.len()
     }
 }
 
+/// Used to update a `RenderState` with new data. Any `None` fields will be left untouched.
 #[derive(Debug, Clone, Default)]
 pub(crate) struct UpdateRenderState {
-    pub uniforms: Option<Uniforms>,
-    pub instances: Option<Vec<Instance>>,
-    pub textures: Option<(Vec<wgpu::TextureView>, Vec<wgpu::Sampler>)>,
+    pub(crate) uniforms: Option<Uniforms>,
+    pub(crate) instances: Option<Vec<Instance>>,
+    pub(crate) textures: Option<(Vec<wgpu::TextureView>, Vec<wgpu::Sampler>)>,
 }
