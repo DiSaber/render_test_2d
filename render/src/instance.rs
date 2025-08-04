@@ -9,7 +9,7 @@ pub(crate) struct Instance {
 }
 
 impl Instance {
-    pub fn new(transform: Mat4) -> Self {
+    pub(crate) fn new(transform: Mat4) -> Self {
         Self {
             transform: pack_transform(transform),
         }
@@ -18,7 +18,7 @@ impl Instance {
     const ATTRIBUTES: [wgpu::VertexAttribute; 3] =
         wgpu::vertex_attr_array![2 => Float32x4, 3 => Float32x4, 4 => Float32x4];
 
-    pub const fn layout() -> wgpu::VertexBufferLayout<'static> {
+    pub(crate) const fn layout() -> wgpu::VertexBufferLayout<'static> {
         wgpu::VertexBufferLayout {
             array_stride: std::mem::size_of::<Self>() as wgpu::BufferAddress,
             step_mode: wgpu::VertexStepMode::Instance,

@@ -6,7 +6,7 @@ pub(crate) struct RenderState {
 }
 
 impl RenderState {
-    pub fn new(device: &wgpu::Device, uniforms: Uniforms, instances: Vec<Instance>) -> Self {
+    pub(crate) fn new(device: &wgpu::Device, uniforms: Uniforms, instances: Vec<Instance>) -> Self {
         Self {
             uniform_buffer: ArrayBuffer::new(
                 device,
@@ -23,7 +23,7 @@ impl RenderState {
         }
     }
 
-    pub fn update_render_state(
+    pub(crate) fn update_render_state(
         &mut self,
         device: &wgpu::Device,
         queue: &wgpu::Queue,
@@ -38,11 +38,11 @@ impl RenderState {
         }
     }
 
-    pub fn get_uniform_buffer(&self) -> &ArrayBuffer<Uniforms> {
+    pub(crate) fn get_uniform_buffer(&self) -> &ArrayBuffer<Uniforms> {
         &self.uniform_buffer
     }
 
-    pub fn get_instance_buffer(&self) -> &ArrayBuffer<Instance> {
+    pub(crate) fn get_instance_buffer(&self) -> &ArrayBuffer<Instance> {
         &self.instance_buffer
     }
 }

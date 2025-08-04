@@ -8,7 +8,7 @@ pub(crate) struct Uniforms {
 }
 
 impl Uniforms {
-    pub fn new(camera_view: Mat4) -> Self {
+    pub(crate) fn new(camera_view: Mat4) -> Self {
         Self {
             camera_view: camera_view.to_cols_array(),
         }

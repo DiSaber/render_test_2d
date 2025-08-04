@@ -37,7 +37,7 @@ pub(crate) struct RenderPipeline {
 
 impl RenderPipeline {
     /// Creates a new render pipeline
-    pub async fn new(window: Arc<Window>) -> Option<Self> {
+    pub(crate) async fn new(window: Arc<Window>) -> Option<Self> {
         let instance = wgpu::Instance::new(&wgpu::InstanceDescriptor::default());
         let adapter = instance
             .request_adapter(&wgpu::RequestAdapterOptions::default())
@@ -274,7 +274,7 @@ impl RenderPipeline {
         ))
     }
 
-    pub fn resize(&mut self, new_size: PhysicalSize<u32>) {
+    pub(crate) fn resize(&mut self, new_size: PhysicalSize<u32>) {
         self.surface_config.width = new_size.width.max(1);
         self.surface_config.height = new_size.height.max(1);
 
@@ -283,7 +283,7 @@ impl RenderPipeline {
         self.depth_texture = Self::create_depth_texture(&self.device, &self.surface_config)
     }
 
-    pub fn render(&mut self) {
+    pub(crate) fn render(&mut self) {
         // Temporary
         self.render_state.update_render_state(
             &self.device,
