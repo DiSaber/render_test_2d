@@ -1,7 +1,8 @@
 use crate::{array_buffer::ArrayBuffer, instance::Instance, uniforms::Uniforms};
+use wgpu::util::DeviceExt;
 
 pub(crate) struct RenderState {
-    uniform_buffer: ArrayBuffer<Uniforms>,
+    uniform_buffer: wgpu::Buffer,
     uniform_bind_group_layout: wgpu::BindGroupLayout,
     uniform_bind_group: wgpu::BindGroup,
     instance_buffer: ArrayBuffer<Instance>,
@@ -9,12 +10,11 @@ pub(crate) struct RenderState {
 
 impl RenderState {
     pub(crate) fn new(device: &wgpu::Device, uniforms: Uniforms, instances: Vec<Instance>) -> Self {
-        let uniform_buffer = ArrayBuffer::new(
-            device,
-            Some("Uniform Buffer"),
-            wgpu::BufferUsages::UNIFORM | wgpu::BufferUsages::COPY_DST,
-            &[uniforms],
-        );
+        let uniform_buffer = device.create_buffer_init(&wgpu::util::BufferInitDescriptor {
+            label: Some("Uniform Buffer"),
+            contents: bytemuck::cast_slice(&[uniforms]),
+            usage: wgpu::BufferUsages::UNIFORM | wgpu::BufferUsages::COPY_DST,
+        });
         let instance_buffer = ArrayBuffer::new(
             device,
             Some("Instance Buffer"),
@@ -42,7 +42,7 @@ impl RenderState {
             layout: &uniform_bind_group_layout,
             entries: &[wgpu::BindGroupEntry {
                 binding: 0,
-                resource: uniform_buffer.get_buffer().as_entire_binding(),
+                resource: uniform_buffer.as_entire_binding(),
             }],
             label: None,
         });
@@ -62,7 +62,7 @@ impl RenderState {
         update_render_state: UpdateRenderState,
     ) {
         if let Some(uniforms) = update_render_state.uniforms {
-            self.uniform_buffer.update_data(device, queue, &[uniforms]);
+            queue.write_buffer(&self.uniform_buffer, 0, bytemuck::cast_slice(&[uniforms]));
         }
 
         if let Some(instances) = update_render_state.instances {
