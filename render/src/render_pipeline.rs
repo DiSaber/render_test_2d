@@ -6,7 +6,9 @@ use winit::{dpi::PhysicalSize, window::Window};
 
 use crate::{
     instance::Instance,
-    render_state::{RenderState, UpdateRenderState},
+    render_state::{
+        MAX_BINDING_ARRAY_SAMPLERS, MAX_BINDING_ARRAY_TEXTURES, RenderState, UpdateRenderState,
+    },
     uniforms::Uniforms,
     vertex::GpuVertex,
 };
@@ -47,6 +49,13 @@ impl RenderPipeline {
                 required_features: wgpu::Features::TEXTURE_BINDING_ARRAY
                     | wgpu::Features::SAMPLED_TEXTURE_AND_STORAGE_BUFFER_ARRAY_NON_UNIFORM_INDEXING
                     | wgpu::Features::PARTIALLY_BOUND_BINDING_ARRAY,
+                required_limits: wgpu::Limits {
+                    max_binding_array_elements_per_shader_stage: MAX_BINDING_ARRAY_TEXTURES.get()
+                        + MAX_BINDING_ARRAY_SAMPLERS.get(),
+                    max_binding_array_sampler_elements_per_shader_stage: MAX_BINDING_ARRAY_SAMPLERS
+                        .get(),
+                    ..wgpu::Limits::defaults()
+                },
                 ..Default::default()
             })
             .await
@@ -66,16 +75,51 @@ impl RenderPipeline {
 
         surface.configure(&device, &surface_config);
 
+        let size = 1;
+        let texture_extent = wgpu::Extent3d {
+            width: size,
+            height: size,
+            depth_or_array_layers: 1,
+        };
+        let texture = device.create_texture(&wgpu::TextureDescriptor {
+            label: None,
+            size: texture_extent,
+            mip_level_count: 1,
+            sample_count: 1,
+            dimension: wgpu::TextureDimension::D2,
+            format: wgpu::TextureFormat::Rgba8UnormSrgb,
+            usage: wgpu::TextureUsages::TEXTURE_BINDING | wgpu::TextureUsages::COPY_DST,
+            view_formats: &[],
+        });
+        let texture_view = texture.create_view(&wgpu::TextureViewDescriptor::default());
+        queue.write_texture(
+            texture.as_image_copy(),
+            &[255, 0, 0, 255],
+            wgpu::TexelCopyBufferLayout {
+                offset: 0,
+                bytes_per_row: Some(4),
+                rows_per_image: None,
+            },
+            texture_extent,
+        );
+        let sampler = device.create_sampler(&wgpu::SamplerDescriptor::default());
+
         let render_state = RenderState::new(
             &device,
             Self::create_uniforms(&surface_config),
-            vec![
-                Instance::new(Mat4::IDENTITY),
-                Instance::new(Mat4::from_scale_rotation_translation(
-                    Vec3::splat(2.0),
-                    Quat::IDENTITY,
-                    Vec3::new(1.0, 0.0, -1.0),
-                )),
+            &[texture_view],
+            &[sampler],
+            &[
+                Instance::new(Mat4::IDENTITY, 0, 0),
+                Instance::new(
+                    Mat4::from_scale_rotation_translation(
+                        Vec3::splat(2.0),
+                        Quat::IDENTITY,
+                        Vec3::new(1.0, 0.0, -1.0),
+                    ),
+                    0,
+                    0,
+                ),
             ],
         );
 
@@ -98,54 +142,6 @@ impl RenderPipeline {
             bind_group_layouts: &render_state.get_bind_group_layouts(),
             push_constant_ranges: &[],
         });
-
-        // Mandelbrot set placeholder
-        fn create_texels(size: usize) -> Vec<u8> {
-            (0..size * size)
-                .map(|id| {
-                    // get high five for recognizing this ;)
-                    let cx = 3.0 * (id % size) as f32 / (size - 1) as f32 - 2.0;
-                    let cy = 2.0 * (id / size) as f32 / (size - 1) as f32 - 1.0;
-                    let (mut x, mut y, mut count) = (cx, cy, 0);
-                    while count < 0xFF && x * x + y * y < 4.0 {
-                        let old_x = x;
-                        x = x * x - y * y + cx;
-                        y = 2.0 * old_x * y + cy;
-                        count += 1;
-                    }
-                    count
-                })
-                .collect()
-        }
-
-        let size = 256u32;
-        let texels = create_texels(size as usize);
-        let texture_extent = wgpu::Extent3d {
-            width: size,
-            height: size,
-            depth_or_array_layers: 1,
-        };
-        let texture = device.create_texture(&wgpu::TextureDescriptor {
-            label: None,
-            size: texture_extent,
-            mip_level_count: 1,
-            sample_count: 1,
-            dimension: wgpu::TextureDimension::D2,
-            format: wgpu::TextureFormat::R8Uint,
-            usage: wgpu::TextureUsages::TEXTURE_BINDING | wgpu::TextureUsages::COPY_DST,
-            view_formats: &[],
-        });
-        let texture_view = texture.create_view(&wgpu::TextureViewDescriptor::default());
-        queue.write_texture(
-            texture.as_image_copy(),
-            &texels,
-            wgpu::TexelCopyBufferLayout {
-                offset: 0,
-                bytes_per_row: Some(size),
-                rows_per_image: None,
-            },
-            texture_extent,
-        );
 
         let shader = device.create_shader_module(wgpu::include_wgsl!("main_shader.wgsl"));
 
