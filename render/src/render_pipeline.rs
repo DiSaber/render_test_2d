@@ -10,14 +10,14 @@ use crate::{
         MAX_BINDING_ARRAY_SAMPLERS, MAX_BINDING_ARRAY_TEXTURES, RenderState, UpdateRenderState,
     },
     uniforms::Uniforms,
-    vertex::GpuVertex,
+    vertex::Vertex,
 };
 
-const QUAD_VERTICES: [GpuVertex; 4] = [
-    GpuVertex::new(Vec3::new(0.5, 0.5, 0.0), Vec2::new(1.0, 1.0)),
-    GpuVertex::new(Vec3::new(-0.5, 0.5, 0.0), Vec2::new(0.0, 1.0)),
-    GpuVertex::new(Vec3::new(0.5, -0.5, 0.0), Vec2::new(1.0, 0.0)),
-    GpuVertex::new(Vec3::new(-0.5, -0.5, 0.0), Vec2::new(0.0, 0.0)),
+const QUAD_VERTICES: [Vertex; 4] = [
+    Vertex::new(Vec3::new(0.5, 0.5, 0.0), Vec2::new(1.0, 1.0)),
+    Vertex::new(Vec3::new(-0.5, 0.5, 0.0), Vec2::new(0.0, 1.0)),
+    Vertex::new(Vec3::new(0.5, -0.5, 0.0), Vec2::new(1.0, 0.0)),
+    Vertex::new(Vec3::new(-0.5, -0.5, 0.0), Vec2::new(0.0, 0.0)),
 ];
 const QUAD_INDICES: [u16; 6] = [0, 3, 2, 3, 0, 1];
 
@@ -173,7 +173,7 @@ impl RenderPipeline {
                 module: &shader,
                 entry_point: Some("vs_main"),
                 compilation_options: Default::default(),
-                buffers: &[GpuVertex::layout()],
+                buffers: &[Vertex::layout()],
             },
             fragment: Some(wgpu::FragmentState {
                 module: &shader,

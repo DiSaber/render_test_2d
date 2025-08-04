@@ -3,12 +3,12 @@ use glam::{Vec2, Vec3};
 
 #[repr(C)]
 #[derive(Debug, Clone, Copy, Pod, Zeroable, Default)]
-pub(crate) struct GpuVertex {
+pub(crate) struct Vertex {
     pub position: [f32; 3],
     pub texcoord: [f32; 2],
 }
 
-impl GpuVertex {
+impl Vertex {
     pub(crate) const fn new(position: Vec3, texcoord: Vec2) -> Self {
         Self {
             position: position.to_array(),
