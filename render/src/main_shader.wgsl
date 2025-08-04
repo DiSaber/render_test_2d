@@ -56,15 +56,10 @@ struct FragmentInput {
 
 @fragment
 fn fs_main(fragment: FragmentInput) -> @location(0) vec4<f32> {
-    let tex_coord_dpdx = dpdx(fragment.tex_coord);
-    let tex_coord_dpdy = dpdy(fragment.tex_coord);
-
-    let out = textureSampleGrad(
+    let out = textureSample(
         texture_array[fragment.texture_index],
         sampler_array[fragment.sampler_index],
         fragment.tex_coord,
-        tex_coord_dpdx,
-        tex_coord_dpdy,
     );
 
     if out.w < 0.5 { discard; } // Discard pixel if the texture alpha is transparent
