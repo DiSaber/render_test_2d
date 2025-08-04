@@ -30,9 +30,8 @@ pub(crate) struct RenderPipeline {
     quad_vertex_buffer: wgpu::Buffer,
     quad_index_buffer: wgpu::Buffer,
     depth_texture: wgpu::TextureView,
-    bind_group: wgpu::BindGroup,
     pipeline: wgpu::RenderPipeline,
-    pub render_state: RenderState,
+    render_state: RenderState,
 }
 
 impl RenderPipeline {
@@ -45,7 +44,9 @@ impl RenderPipeline {
             .ok()?;
         let (device, queue) = adapter
             .request_device(&wgpu::DeviceDescriptor {
-                required_features: wgpu::Features::TEXTURE_BINDING_ARRAY,
+                required_features: wgpu::Features::TEXTURE_BINDING_ARRAY
+                    | wgpu::Features::SAMPLED_TEXTURE_AND_STORAGE_BUFFER_ARRAY_NON_UNIFORM_INDEXING
+                    | wgpu::Features::PARTIALLY_BOUND_BINDING_ARRAY,
                 ..Default::default()
             })
             .await
@@ -92,36 +93,9 @@ impl RenderPipeline {
 
         let depth_texture = Self::create_depth_texture(&device, &surface_config);
 
-        let bind_group_layout = device.create_bind_group_layout(&wgpu::BindGroupLayoutDescriptor {
-            label: None,
-            entries: &[
-                wgpu::BindGroupLayoutEntry {
-                    binding: 0,
-                    visibility: wgpu::ShaderStages::VERTEX,
-                    ty: wgpu::BindingType::Buffer {
-                        ty: wgpu::BufferBindingType::Uniform,
-                        has_dynamic_offset: false,
-                        min_binding_size: wgpu::BufferSize::new(
-                            std::mem::size_of::<Uniforms>() as u64
-                        ),
-                    },
-                    count: None,
-                },
-                wgpu::BindGroupLayoutEntry {
-                    binding: 1,
-                    visibility: wgpu::ShaderStages::FRAGMENT,
-                    ty: wgpu::BindingType::Texture {
-                        multisampled: false,
-                        sample_type: wgpu::TextureSampleType::Uint,
-                        view_dimension: wgpu::TextureViewDimension::D2,
-                    },
-                    count: None,
-                },
-            ],
-        });
         let pipeline_layout = device.create_pipeline_layout(&wgpu::PipelineLayoutDescriptor {
             label: None,
-            bind_group_layouts: &[&bind_group_layout],
+            bind_group_layouts: &render_state.get_bind_group_layouts(),
             push_constant_ranges: &[],
         });
 
@@ -173,24 +147,6 @@ impl RenderPipeline {
             texture_extent,
         );
 
-        let bind_group = device.create_bind_group(&wgpu::BindGroupDescriptor {
-            layout: &bind_group_layout,
-            entries: &[
-                wgpu::BindGroupEntry {
-                    binding: 0,
-                    resource: render_state
-                        .get_uniform_buffer()
-                        .get_buffer()
-                        .as_entire_binding(),
-                },
-                wgpu::BindGroupEntry {
-                    binding: 1,
-                    resource: wgpu::BindingResource::TextureView(&texture_view),
-                },
-            ],
-            label: None,
-        });
-
         let shader = device.create_shader_module(wgpu::include_wgsl!("main_shader.wgsl"));
 
         let pipeline = device.create_render_pipeline(&wgpu::RenderPipelineDescriptor {
@@ -233,7 +189,6 @@ impl RenderPipeline {
             quad_vertex_buffer,
             quad_index_buffer,
             depth_texture,
-            bind_group,
             pipeline,
             render_state,
         })
@@ -340,7 +295,9 @@ impl RenderPipeline {
             let instance_buffer = self.render_state.get_instance_buffer();
             if instance_buffer.len() > 0 {
                 rpass.set_pipeline(&self.pipeline);
-                rpass.set_bind_group(0, &self.bind_group, &[]);
+                for (i, bind_group) in self.render_state.get_bind_groups().into_iter().enumerate() {
+                    rpass.set_bind_group(i as u32, bind_group, &[]);
+                }
 
                 rpass.set_index_buffer(self.quad_index_buffer.slice(..), wgpu::IndexFormat::Uint16);
                 rpass.set_vertex_buffer(0, self.quad_vertex_buffer.slice(..));

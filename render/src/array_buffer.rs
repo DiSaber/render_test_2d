@@ -49,7 +49,7 @@ where
             queue.write_buffer(&self.buffer, 0, bytemuck::cast_slice(data));
         }
 
-        self.length = data.len()
+        self.length = data.len();
     }
 }
 
