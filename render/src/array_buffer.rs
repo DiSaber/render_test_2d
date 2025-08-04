@@ -36,9 +36,16 @@ where
         }
     }
 
-    /// Updates the buffer with new data and resizes it if the data doesn't fit.
-    pub(crate) fn update_data(&mut self, device: &wgpu::Device, queue: &wgpu::Queue, data: &[T]) {
-        if data.len() > self.capacity {
+    /// Updates the buffer with new data and resizes it if the data doesn't fit. Returns if the
+    /// buffer was resized.
+    pub(crate) fn update_data(
+        &mut self,
+        device: &wgpu::Device,
+        queue: &wgpu::Queue,
+        data: &[T],
+    ) -> bool {
+        let resize = data.len() > self.capacity;
+        if resize {
             self.buffer = device.create_buffer_init(&wgpu::util::BufferInitDescriptor {
                 label: self.label.as_deref(),
                 contents: bytemuck::cast_slice(data),
@@ -50,6 +57,8 @@ where
         }
 
         self.length = data.len();
+
+        resize
     }
 }
 

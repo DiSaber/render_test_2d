@@ -81,7 +81,7 @@ impl RenderPipeline {
             height: size,
             depth_or_array_layers: 1,
         };
-        let texture = device.create_texture(&wgpu::TextureDescriptor {
+        let texture1 = device.create_texture(&wgpu::TextureDescriptor {
             label: None,
             size: texture_extent,
             mip_level_count: 1,
@@ -91,10 +91,31 @@ impl RenderPipeline {
             usage: wgpu::TextureUsages::TEXTURE_BINDING | wgpu::TextureUsages::COPY_DST,
             view_formats: &[],
         });
-        let texture_view = texture.create_view(&wgpu::TextureViewDescriptor::default());
+        let texture_view1 = texture1.create_view(&wgpu::TextureViewDescriptor::default());
         queue.write_texture(
-            texture.as_image_copy(),
+            texture1.as_image_copy(),
             &[255, 0, 0, 255],
+            wgpu::TexelCopyBufferLayout {
+                offset: 0,
+                bytes_per_row: Some(4),
+                rows_per_image: None,
+            },
+            texture_extent,
+        );
+        let texture2 = device.create_texture(&wgpu::TextureDescriptor {
+            label: None,
+            size: texture_extent,
+            mip_level_count: 1,
+            sample_count: 1,
+            dimension: wgpu::TextureDimension::D2,
+            format: wgpu::TextureFormat::Rgba8UnormSrgb,
+            usage: wgpu::TextureUsages::TEXTURE_BINDING | wgpu::TextureUsages::COPY_DST,
+            view_formats: &[],
+        });
+        let texture_view2 = texture2.create_view(&wgpu::TextureViewDescriptor::default());
+        queue.write_texture(
+            texture2.as_image_copy(),
+            &[0, 0, 255, 255],
             wgpu::TexelCopyBufferLayout {
                 offset: 0,
                 bytes_per_row: Some(4),
@@ -107,8 +128,6 @@ impl RenderPipeline {
         let render_state = RenderState::new(
             &device,
             Self::create_uniforms(&surface_config),
-            &[texture_view],
-            &[sampler],
             &[
                 Instance::new(Mat4::IDENTITY, 0, 0),
                 Instance::new(
@@ -117,10 +136,12 @@ impl RenderPipeline {
                         Quat::IDENTITY,
                         Vec3::new(1.0, 0.0, -1.0),
                     ),
-                    0,
+                    1,
                     0,
                 ),
             ],
+            &[texture_view1, texture_view2],
+            &[sampler],
         );
 
         let quad_vertex_buffer = device.create_buffer_init(&wgpu::util::BufferInitDescriptor {
@@ -152,7 +173,7 @@ impl RenderPipeline {
                 module: &shader,
                 entry_point: Some("vs_main"),
                 compilation_options: Default::default(),
-                buffers: &[GpuVertex::layout(), Instance::layout()],
+                buffers: &[GpuVertex::layout()],
             },
             fragment: Some(wgpu::FragmentState {
                 module: &shader,
@@ -297,7 +318,6 @@ impl RenderPipeline {
 
                 rpass.set_index_buffer(self.quad_index_buffer.slice(..), wgpu::IndexFormat::Uint16);
                 rpass.set_vertex_buffer(0, self.quad_vertex_buffer.slice(..));
-                rpass.set_vertex_buffer(1, instance_buffer.get_buffer().slice(..));
 
                 rpass.draw_indexed(
                     0..QUAD_INDICES.len() as u32,

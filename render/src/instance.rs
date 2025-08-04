@@ -8,6 +8,7 @@ pub(crate) struct Instance {
     pub transform: [[f32; 4]; 3],
     pub texture_index: u32,
     pub sampler_index: u32,
+    _padding: [u32; 2],
 }
 
 impl Instance {
@@ -16,16 +17,7 @@ impl Instance {
             transform: pack_transform(transform),
             texture_index,
             sampler_index,
-        }
-    }
-
-    const ATTRIBUTES: [wgpu::VertexAttribute; 5] = wgpu::vertex_attr_array![2 => Float32x4, 3 => Float32x4, 4 => Float32x4, 5 => Uint32, 6 => Uint32];
-
-    pub(crate) const fn layout() -> wgpu::VertexBufferLayout<'static> {
-        wgpu::VertexBufferLayout {
-            array_stride: std::mem::size_of::<Self>() as wgpu::BufferAddress,
-            step_mode: wgpu::VertexStepMode::Instance,
-            attributes: &Self::ATTRIBUTES,
+            ..Default::default()
         }
     }
 }

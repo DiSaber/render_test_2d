@@ -10,18 +10,20 @@ pub(crate) struct RenderState {
     uniform_buffer: wgpu::Buffer,
     uniform_bind_group_layout: wgpu::BindGroupLayout,
     uniform_bind_group: wgpu::BindGroup,
+    instance_buffer: ArrayBuffer<Instance>,
+    instance_bind_group_layout: wgpu::BindGroupLayout,
+    instance_bind_group: wgpu::BindGroup,
     texture_bind_group_layout: wgpu::BindGroupLayout,
     texture_bind_group: wgpu::BindGroup,
-    instance_buffer: ArrayBuffer<Instance>,
 }
 
 impl RenderState {
     pub(crate) fn new(
         device: &wgpu::Device,
         uniforms: Uniforms,
+        instances: &[Instance],
         textures: &[wgpu::TextureView],
         samplers: &[wgpu::Sampler],
-        instances: &[Instance],
     ) -> Self {
         let uniform_buffer = device.create_buffer_init(&wgpu::util::BufferInitDescriptor {
             label: Some("Uniform Buffer"),
@@ -31,7 +33,7 @@ impl RenderState {
         let instance_buffer = ArrayBuffer::new(
             device,
             Some("Instance Buffer"),
-            wgpu::BufferUsages::VERTEX | wgpu::BufferUsages::COPY_DST,
+            wgpu::BufferUsages::STORAGE | wgpu::BufferUsages::COPY_DST,
             instances,
         );
 
@@ -57,6 +59,29 @@ impl RenderState {
             entries: &[wgpu::BindGroupEntry {
                 binding: 0,
                 resource: uniform_buffer.as_entire_binding(),
+            }],
+        });
+
+        let instance_bind_group_layout =
+            device.create_bind_group_layout(&wgpu::BindGroupLayoutDescriptor {
+                label: Some("Instance Bind Group Layout"),
+                entries: &[wgpu::BindGroupLayoutEntry {
+                    binding: 0,
+                    visibility: wgpu::ShaderStages::VERTEX_FRAGMENT,
+                    ty: wgpu::BindingType::Buffer {
+                        ty: wgpu::BufferBindingType::Storage { read_only: true },
+                        has_dynamic_offset: false,
+                        min_binding_size: None,
+                    },
+                    count: None,
+                }],
+            });
+        let instance_bind_group = device.create_bind_group(&wgpu::BindGroupDescriptor {
+            label: Some("Instance Bind Group"),
+            layout: &instance_bind_group_layout,
+            entries: &[wgpu::BindGroupEntry {
+                binding: 0,
+                resource: instance_buffer.get_buffer().as_entire_binding(),
             }],
         });
 
@@ -105,9 +130,11 @@ impl RenderState {
             uniform_buffer,
             uniform_bind_group_layout,
             uniform_bind_group,
+            instance_buffer,
+            instance_bind_group_layout,
+            instance_bind_group,
             texture_bind_group_layout,
             texture_bind_group,
-            instance_buffer,
         }
     }
 
@@ -122,7 +149,17 @@ impl RenderState {
         }
 
         if let Some(instances) = update_render_state.instances {
-            self.instance_buffer.update_data(device, queue, &instances);
+            if self.instance_buffer.update_data(device, queue, &instances) {
+                // Buffer was resized, remake the bind group
+                self.instance_bind_group = device.create_bind_group(&wgpu::BindGroupDescriptor {
+                    label: Some("Instance Bind Group"),
+                    layout: &self.instance_bind_group_layout,
+                    entries: &[wgpu::BindGroupEntry {
+                        binding: 0,
+                        resource: self.instance_buffer.get_buffer().as_entire_binding(),
+                    }],
+                });
+            }
         }
 
         if let Some((textures, samplers)) = update_render_state.textures {
@@ -147,15 +184,20 @@ impl RenderState {
         }
     }
 
-    pub(crate) fn get_bind_group_layouts(&self) -> [&wgpu::BindGroupLayout; 2] {
+    pub(crate) fn get_bind_group_layouts(&self) -> [&wgpu::BindGroupLayout; 3] {
         [
             &self.uniform_bind_group_layout,
+            &self.instance_bind_group_layout,
             &self.texture_bind_group_layout,
         ]
     }
 
-    pub(crate) fn get_bind_groups(&self) -> [&wgpu::BindGroup; 2] {
-        [&self.uniform_bind_group, &self.texture_bind_group]
+    pub(crate) fn get_bind_groups(&self) -> [&wgpu::BindGroup; 3] {
+        [
+            &self.uniform_bind_group,
+            &self.instance_bind_group,
+            &self.texture_bind_group,
+        ]
     }
 
     pub(crate) fn get_instance_buffer(&self) -> &ArrayBuffer<Instance> {
