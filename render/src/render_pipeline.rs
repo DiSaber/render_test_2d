@@ -281,7 +281,7 @@ impl RenderPipeline {
             .device
             .create_command_encoder(&wgpu::CommandEncoderDescriptor { label: None });
         {
-            let mut rpass = encoder.begin_render_pass(&wgpu::RenderPassDescriptor {
+            let mut render_pass = encoder.begin_render_pass(&wgpu::RenderPassDescriptor {
                 label: None,
                 color_attachments: &[Some(wgpu::RenderPassColorAttachment {
                     view: &surface_view,
@@ -311,15 +311,16 @@ impl RenderPipeline {
 
             let instance_buffer = self.render_state.get_instance_buffer();
             if instance_buffer.len() > 0 {
-                rpass.set_pipeline(&self.pipeline);
+                render_pass.set_pipeline(&self.pipeline);
                 for (i, bind_group) in self.render_state.get_bind_groups().into_iter().enumerate() {
-                    rpass.set_bind_group(i as u32, bind_group, &[]);
+                    render_pass.set_bind_group(i as u32, bind_group, &[]);
                 }
 
-                rpass.set_index_buffer(self.quad_index_buffer.slice(..), wgpu::IndexFormat::Uint16);
-                rpass.set_vertex_buffer(0, self.quad_vertex_buffer.slice(..));
+                render_pass
+                    .set_index_buffer(self.quad_index_buffer.slice(..), wgpu::IndexFormat::Uint16);
+                render_pass.set_vertex_buffer(0, self.quad_vertex_buffer.slice(..));
 
-                rpass.draw_indexed(
+                render_pass.draw_indexed(
                     0..QUAD_INDICES.len() as u32,
                     0,
                     0..instance_buffer.len() as u32,
