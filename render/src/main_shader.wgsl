@@ -17,14 +17,14 @@ struct VertexInput {
 
 struct VertexOutput {
     @builtin(position) position: vec4<f32>,
-    @location(0) tex_coord: vec2<f32>,
-    @location(1) @interpolate(flat) instance_index: u32,
+    @location(0) @interpolate(flat) instance_index: u32,
+    @location(1) tex_coord: vec2<f32>,
 };
 
 @vertex
 fn vs_main(
+    @builtin(instance_index) instance_index: u32,
     vertex: VertexInput,
-    @builtin(instance_index) instance_index: u32
 ) -> VertexOutput {
     let instance = instances[instance_index];
     let instance_matrix = transpose(mat4x4<f32>(
@@ -48,8 +48,8 @@ var texture_array: binding_array<texture_2d<f32>>;
 var sampler_array: binding_array<sampler>;
 
 struct FragmentInput {
-    @location(0) tex_coord: vec2<f32>,
-    @location(1) @interpolate(flat) instance_index: u32,
+    @location(0) @interpolate(flat) instance_index: u32,
+    @location(1) tex_coord: vec2<f32>,
 }
 
 @fragment
