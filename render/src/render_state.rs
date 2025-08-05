@@ -20,6 +20,9 @@ pub(crate) struct RenderState {
     // --- //
     texture_bind_group_layout: wgpu::BindGroupLayout,
     texture_bind_group: wgpu::BindGroup,
+    // https://github.com/gfx-rs/wgpu/issues/3692
+    dummy_texture: wgpu::TextureView,
+    dummy_sampler: wgpu::Sampler,
 }
 
 impl RenderState {
@@ -91,6 +94,23 @@ impl RenderState {
             }],
         });
 
+        let dummy_texture = device
+            .create_texture(&wgpu::TextureDescriptor {
+                label: None,
+                size: wgpu::Extent3d {
+                    width: 1,
+                    height: 1,
+                    depth_or_array_layers: 1,
+                },
+                mip_level_count: 1,
+                sample_count: 1,
+                dimension: wgpu::TextureDimension::D2,
+                format: wgpu::TextureFormat::Rgba8UnormSrgb,
+                usage: wgpu::TextureUsages::TEXTURE_BINDING,
+                view_formats: &[],
+            })
+            .create_view(&wgpu::TextureViewDescriptor::default());
+        let dummy_sampler = device.create_sampler(&wgpu::SamplerDescriptor::default());
         let texture_bind_group_layout =
             device.create_bind_group_layout(&wgpu::BindGroupLayoutDescriptor {
                 label: Some("Texture Bind Group Layout"),
@@ -119,13 +139,23 @@ impl RenderState {
                 wgpu::BindGroupEntry {
                     binding: 0,
                     resource: wgpu::BindingResource::TextureViewArray(
-                        &textures.iter().collect::<Vec<_>>(),
+                        // https://github.com/gfx-rs/wgpu/issues/3692
+                        &(if textures.is_empty() {
+                            vec![&dummy_texture]
+                        } else {
+                            textures.iter().collect()
+                        }),
                     ),
                 },
                 wgpu::BindGroupEntry {
                     binding: 1,
                     resource: wgpu::BindingResource::SamplerArray(
-                        &samplers.iter().collect::<Vec<_>>(),
+                        // https://github.com/gfx-rs/wgpu/issues/3692
+                        &(if samplers.is_empty() {
+                            vec![&dummy_sampler]
+                        } else {
+                            samplers.iter().collect()
+                        }),
                     ),
                 },
             ],
@@ -141,6 +171,8 @@ impl RenderState {
             instance_bind_group,
             texture_bind_group_layout,
             texture_bind_group,
+            dummy_texture,
+            dummy_sampler,
         }
     }
 
@@ -176,13 +208,23 @@ impl RenderState {
                     wgpu::BindGroupEntry {
                         binding: 0,
                         resource: wgpu::BindingResource::TextureViewArray(
-                            &textures.iter().collect::<Vec<_>>(),
+                            // https://github.com/gfx-rs/wgpu/issues/3692
+                            &(if textures.is_empty() {
+                                vec![&self.dummy_texture]
+                            } else {
+                                textures.iter().collect()
+                            }),
                         ),
                     },
                     wgpu::BindGroupEntry {
                         binding: 1,
                         resource: wgpu::BindingResource::SamplerArray(
-                            &samplers.iter().collect::<Vec<_>>(),
+                            // https://github.com/gfx-rs/wgpu/issues/3692
+                            &(if samplers.is_empty() {
+                                vec![&self.dummy_sampler]
+                            } else {
+                                samplers.iter().collect()
+                            }),
                         ),
                     },
                 ],
