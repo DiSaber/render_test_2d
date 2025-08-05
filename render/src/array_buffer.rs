@@ -19,8 +19,8 @@ where
     pub(crate) fn new(
         device: &wgpu::Device,
         label: Option<&str>,
-        usage: wgpu::BufferUsages,
         data: &[T],
+        usage: wgpu::BufferUsages,
     ) -> Self {
         let buffer = device.create_buffer_init(&wgpu::util::BufferInitDescriptor {
             label,

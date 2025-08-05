@@ -37,13 +37,6 @@ impl RenderState {
             contents: bytemuck::cast_slice(&[uniforms]),
             usage: wgpu::BufferUsages::UNIFORM | wgpu::BufferUsages::COPY_DST,
         });
-        let instance_buffer = ArrayBuffer::new(
-            device,
-            Some("Instance Buffer"),
-            wgpu::BufferUsages::STORAGE | wgpu::BufferUsages::COPY_DST,
-            instances,
-        );
-
         let uniform_bind_group_layout =
             device.create_bind_group_layout(&wgpu::BindGroupLayoutDescriptor {
                 label: Some("Uniform Bind Group Layout"),
@@ -69,6 +62,12 @@ impl RenderState {
             }],
         });
 
+        let instance_buffer = ArrayBuffer::new(
+            device,
+            Some("Instance Buffer"),
+            instances,
+            wgpu::BufferUsages::STORAGE | wgpu::BufferUsages::COPY_DST,
+        );
         let instance_bind_group_layout =
             device.create_bind_group_layout(&wgpu::BindGroupLayoutDescriptor {
                 label: Some("Instance Bind Group Layout"),
