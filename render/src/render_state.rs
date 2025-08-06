@@ -21,6 +21,7 @@ pub(crate) struct RenderState {
     texture_bind_group_layout: wgpu::BindGroupLayout,
     texture_bind_group: wgpu::BindGroup,
     // https://github.com/gfx-rs/wgpu/issues/3692
+    dummy_instance: ArrayBuffer<Instance>,
     dummy_texture: wgpu::TextureView,
     dummy_sampler: wgpu::Sampler,
 }
@@ -71,6 +72,12 @@ impl RenderState {
             instances,
             wgpu::BufferUsages::STORAGE | wgpu::BufferUsages::COPY_DST,
         );
+        let dummy_instance = ArrayBuffer::new(
+            device,
+            None,
+            &[Instance::default()],
+            wgpu::BufferUsages::STORAGE,
+        );
         let instance_bind_group_layout =
             device.create_bind_group_layout(&wgpu::BindGroupLayoutDescriptor {
                 label: Some("Instance Bind Group Layout"),
@@ -90,7 +97,12 @@ impl RenderState {
             layout: &instance_bind_group_layout,
             entries: &[wgpu::BindGroupEntry {
                 binding: 0,
-                resource: instance_buffer.get_buffer().as_entire_binding(),
+                // https://github.com/gfx-rs/wgpu/issues/3692
+                resource: if instance_buffer.len() == 0 {
+                    dummy_instance.get_buffer().as_entire_binding()
+                } else {
+                    instance_buffer.get_buffer().as_entire_binding()
+                },
             }],
         });
 
@@ -171,6 +183,7 @@ impl RenderState {
             instance_bind_group,
             texture_bind_group_layout,
             texture_bind_group,
+            dummy_instance,
             dummy_texture,
             dummy_sampler,
         }
@@ -195,7 +208,12 @@ impl RenderState {
                     layout: &self.instance_bind_group_layout,
                     entries: &[wgpu::BindGroupEntry {
                         binding: 0,
-                        resource: self.instance_buffer.get_buffer().as_entire_binding(),
+                        // https://github.com/gfx-rs/wgpu/issues/3692
+                        resource: if self.instance_buffer.len() == 0 {
+                            self.dummy_instance.get_buffer().as_entire_binding()
+                        } else {
+                            self.instance_buffer.get_buffer().as_entire_binding()
+                        },
                     }],
                 });
             }
