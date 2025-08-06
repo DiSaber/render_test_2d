@@ -100,9 +100,9 @@ where
                 let elapsed = self.last_render.elapsed();
                 self.last_render = Instant::now();
 
-                let update_render_state = Some((self.before_render)(elapsed, render_pipeline));
+                let update_render_state = (self.before_render)(elapsed, render_pipeline);
 
-                render_pipeline.render(update_render_state.unwrap_or_default());
+                render_pipeline.render(update_render_state);
 
                 (self.after_render)(elapsed);
 
