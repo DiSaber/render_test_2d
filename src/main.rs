@@ -1,7 +1,7 @@
 use std::time::Duration;
 
 use render::{
-    glam::{self, Mat4, Quat, Vec3},
+    glam::{Mat4, Quat, Vec3},
     prelude::*,
     wgpu,
     winit::window::WindowAttributes,
@@ -14,14 +14,17 @@ fn main() {
     let before_render = |_delta_time: Duration, render_pipeline: &mut RenderPipeline| {
         let window_size = render_pipeline.get_window_size();
         let aspect_ratio = window_size.width as f32 / window_size.height as f32;
-        let uniforms = Uniforms::new(glam::Mat4::orthographic_rh(
-            -aspect_ratio * VERTICAL_SCALE * 0.5,
-            aspect_ratio * VERTICAL_SCALE * 0.5,
-            -VERTICAL_SCALE * 0.5,
-            VERTICAL_SCALE * 0.5,
-            -10.0,
-            10.0,
-        ));
+        let uniforms = Uniforms::new(
+            Mat4::from_translation(Vec3::new(1.0, 1.0, 0.0)),
+            Mat4::orthographic_rh(
+                -aspect_ratio * VERTICAL_SCALE * 0.5,
+                aspect_ratio * VERTICAL_SCALE * 0.5,
+                -VERTICAL_SCALE * 0.5,
+                VERTICAL_SCALE * 0.5,
+                -10.0,
+                10.0,
+            ),
+        );
 
         let mut instances = None;
         let mut textures = None;

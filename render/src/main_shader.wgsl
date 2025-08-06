@@ -1,5 +1,10 @@
+struct Uniforms {
+    camera_view: mat4x4<f32>,
+    camera_projection: mat4x4<f32>,
+}
+
 @group(0) @binding(0)
-var<uniform> view: mat4x4<f32>;
+var<uniform> uniforms: Uniforms;
 
 struct Instance {
     transform: mat3x4<f32>,
@@ -35,7 +40,7 @@ fn vs_main(
     ));
 
     var result: VertexOutput;
-    result.position = view * instance_matrix * vec4<f32>(vertex.position, 1.0);
+    result.position = uniforms.camera_projection * uniforms.camera_view * instance_matrix * vec4<f32>(vertex.position, 1.0);
     result.tex_coord = vertex.tex_coord;
     result.instance_index = instance_index;
 
