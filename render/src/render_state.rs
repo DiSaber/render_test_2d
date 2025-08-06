@@ -277,8 +277,8 @@ impl RenderState {
 
 /// Used to update a `RenderState` with new data. Any `None` fields will be left untouched.
 #[derive(Debug, Clone, Default)]
-pub(crate) struct UpdateRenderState {
-    pub(crate) uniforms: Option<Uniforms>,
-    pub(crate) instances: Option<Vec<Instance>>,
-    pub(crate) textures: Option<(Vec<wgpu::TextureView>, Vec<wgpu::Sampler>)>,
+pub struct UpdateRenderState {
+    pub uniforms: Option<Uniforms>,
+    pub instances: Option<Vec<Instance>>,
+    pub textures: Option<(Vec<wgpu::TextureView>, Vec<wgpu::Sampler>)>,
 }

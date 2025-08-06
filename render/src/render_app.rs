@@ -6,25 +6,25 @@ use std::{
 use winit::{
     application::ApplicationHandler,
     error::EventLoopError,
-    event::WindowEvent,
+    event::{StartCause, WindowEvent},
     event_loop::{ActiveEventLoop, ControlFlow, EventLoop},
     window::{Window, WindowAttributes, WindowId},
 };
 
-use crate::render_pipeline::RenderPipeline;
+use crate::{render_pipeline::RenderPipeline, render_state::UpdateRenderState};
 
 /// Manages the winit event loop and `RenderPipeline`.
 pub struct RenderApp<T, U>
 where
-    T: FnMut(Duration),
+    T: FnMut(Duration, &mut RenderPipeline) -> UpdateRenderState,
     U: FnMut(Duration),
 {
     /// Initial window attributes.
     window_attributes: Option<WindowAttributes>,
     /// Function that runs before the frame is drawn.
-    before_render: Option<T>,
+    before_render: T,
     /// Function that runs after the frame is drawn.
-    after_render: Option<U>,
+    after_render: U,
     /// The last instant the window was drawn to.
     last_render: Instant,
     /// The current window and its render pipeline.
@@ -33,11 +33,11 @@ where
 
 impl<T, U> RenderApp<T, U>
 where
-    T: FnMut(Duration),
+    T: FnMut(Duration, &mut RenderPipeline) -> UpdateRenderState,
     U: FnMut(Duration),
 {
     /// Creates a new render app with update loop callbacks that are executed before and after rendering.
-    pub fn new(before_render: Option<T>, after_render: Option<U>) -> Self {
+    pub fn new(before_render: T, after_render: U) -> Self {
         Self {
             window_attributes: None,
             before_render,
@@ -63,23 +63,28 @@ where
 
 impl<T, U> ApplicationHandler for RenderApp<T, U>
 where
-    T: FnMut(Duration),
+    T: FnMut(Duration, &mut RenderPipeline) -> UpdateRenderState,
     U: FnMut(Duration),
 {
-    fn resumed(&mut self, event_loop: &ActiveEventLoop) {
-        let window = Arc::new(
-            event_loop
-                .create_window(self.window_attributes.clone().unwrap_or_default())
-                .unwrap(),
-        );
+    fn resumed(&mut self, _: &ActiveEventLoop) {}
 
-        self.render_pipeline = Some((
-            window.clone(),
-            pollster::block_on(RenderPipeline::new(window.clone())).unwrap(),
-        ));
+    fn new_events(&mut self, event_loop: &ActiveEventLoop, cause: StartCause) {
+        // This will only cause issues on Android
+        if cause == StartCause::Init {
+            let window = Arc::new(
+                event_loop
+                    .create_window(self.window_attributes.clone().unwrap_or_default())
+                    .unwrap(),
+            );
 
-        self.last_render = Instant::now(); // Set the instant right before the rendering starts
-        window.request_redraw(); // Kick off rendering
+            self.render_pipeline = Some((
+                window.clone(),
+                pollster::block_on(RenderPipeline::new(window.clone())).unwrap(),
+            ));
+
+            self.last_render = Instant::now(); // Set the instant right before the rendering starts
+            window.request_redraw(); // Kick off rendering
+        }
     }
 
     fn window_event(&mut self, event_loop: &ActiveEventLoop, _id: WindowId, event: WindowEvent) {
@@ -95,20 +100,15 @@ where
                 let elapsed = self.last_render.elapsed();
                 self.last_render = Instant::now();
 
-                if let Some(before_render) = &mut self.before_render {
-                    before_render(elapsed);
-                }
+                let update_render_state = Some((self.before_render)(elapsed, render_pipeline));
 
-                render_pipeline.render();
+                render_pipeline.render(update_render_state.unwrap_or_default());
 
-                if let Some(after_render) = &mut self.after_render {
-                    after_render(elapsed);
-                }
+                (self.after_render)(elapsed);
 
                 window.request_redraw();
             }
-            WindowEvent::Resized(new_size) => {
-                render_pipeline.resize(new_size);
+            WindowEvent::Resized(_) => {
                 window.request_redraw();
             }
             _ => (),

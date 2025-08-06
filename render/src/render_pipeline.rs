@@ -1,15 +1,13 @@
 use std::sync::Arc;
 
-use glam::{Mat4, Quat, Vec2, Vec3};
+use glam::{Vec2, Vec3};
 use wgpu::util::DeviceExt;
 use winit::{dpi::PhysicalSize, window::Window};
 
 use crate::{
-    instance::Instance,
     render_state::{
         MAX_BINDING_ARRAY_SAMPLERS, MAX_BINDING_ARRAY_TEXTURES, RenderState, UpdateRenderState,
     },
-    uniforms::Uniforms,
     vertex::Vertex,
 };
 
@@ -21,10 +19,8 @@ const QUAD_VERTICES: [Vertex; 4] = [
 ];
 const QUAD_INDICES: [u16; 6] = [0, 3, 2, 3, 0, 1];
 
-const VERTICAL_SCALE: f32 = 5.0;
-
 /// Holds the necessary state to draw frames to a window.
-pub(crate) struct RenderPipeline {
+pub struct RenderPipeline {
     device: wgpu::Device,
     queue: wgpu::Queue,
     window: Arc<Window>,
@@ -76,73 +72,12 @@ impl RenderPipeline {
 
         surface.configure(&device, &surface_config);
 
-        let size = 1;
-        let texture_extent = wgpu::Extent3d {
-            width: size,
-            height: size,
-            depth_or_array_layers: 1,
-        };
-        let texture1 = device.create_texture(&wgpu::TextureDescriptor {
-            label: None,
-            size: texture_extent,
-            mip_level_count: 1,
-            sample_count: 1,
-            dimension: wgpu::TextureDimension::D2,
-            format: wgpu::TextureFormat::Rgba8UnormSrgb,
-            usage: wgpu::TextureUsages::TEXTURE_BINDING | wgpu::TextureUsages::COPY_DST,
-            view_formats: &[],
-        });
-        let texture_view1 = texture1.create_view(&wgpu::TextureViewDescriptor::default());
-        queue.write_texture(
-            texture1.as_image_copy(),
-            &[255, 0, 0, 255],
-            wgpu::TexelCopyBufferLayout {
-                offset: 0,
-                bytes_per_row: Some(4),
-                rows_per_image: None,
-            },
-            texture_extent,
-        );
-        let texture2 = device.create_texture(&wgpu::TextureDescriptor {
-            label: None,
-            size: texture_extent,
-            mip_level_count: 1,
-            sample_count: 1,
-            dimension: wgpu::TextureDimension::D2,
-            format: wgpu::TextureFormat::Rgba8UnormSrgb,
-            usage: wgpu::TextureUsages::TEXTURE_BINDING | wgpu::TextureUsages::COPY_DST,
-            view_formats: &[],
-        });
-        let texture_view2 = texture2.create_view(&wgpu::TextureViewDescriptor::default());
-        queue.write_texture(
-            texture2.as_image_copy(),
-            &[0, 0, 255, 255],
-            wgpu::TexelCopyBufferLayout {
-                offset: 0,
-                bytes_per_row: Some(4),
-                rows_per_image: None,
-            },
-            texture_extent,
-        );
-        let sampler = device.create_sampler(&wgpu::SamplerDescriptor::default());
-
         let render_state = RenderState::new(
             &device,
-            Self::create_uniforms(&surface_config),
-            &[
-                Instance::new(Mat4::IDENTITY, 0, 0),
-                Instance::new(
-                    Mat4::from_scale_rotation_translation(
-                        Vec3::splat(2.0),
-                        Quat::IDENTITY,
-                        Vec3::new(1.0, 0.0, -1.0),
-                    ),
-                    1,
-                    0,
-                ),
-            ],
-            &[texture_view1, texture_view2],
-            &[sampler],
+            Default::default(),
+            Default::default(),
+            Default::default(),
+            Default::default(),
         );
 
         let quad_vertex_buffer = device.create_buffer_init(&wgpu::util::BufferInitDescriptor {
@@ -234,21 +169,8 @@ impl RenderPipeline {
         texture.create_view(&wgpu::TextureViewDescriptor::default())
     }
 
-    // Temporary
-    fn create_uniforms(surface_config: &wgpu::SurfaceConfiguration) -> Uniforms {
-        let aspect_ratio = surface_config.width as f32 / surface_config.height as f32;
-        Uniforms::new(glam::Mat4::orthographic_rh(
-            -aspect_ratio * VERTICAL_SCALE * 0.5,
-            aspect_ratio * VERTICAL_SCALE * 0.5,
-            -VERTICAL_SCALE * 0.5,
-            VERTICAL_SCALE * 0.5,
-            -10.0,
-            10.0,
-        ))
-    }
-
     /// Call this whenever the window size changes to update the surface and internal textures.
-    pub(crate) fn resize(&mut self, new_size: PhysicalSize<u32>) {
+    fn resize(&mut self, new_size: PhysicalSize<u32>) {
         self.surface_config.width = new_size.width.max(1);
         self.surface_config.height = new_size.height.max(1);
 
@@ -258,16 +180,14 @@ impl RenderPipeline {
     }
 
     /// Uses the current `RenderState` to draw a frame to the window.
-    pub(crate) fn render(&mut self) {
-        // Temporary
-        self.render_state.update_render_state(
-            &self.device,
-            &self.queue,
-            UpdateRenderState {
-                uniforms: Some(Self::create_uniforms(&self.surface_config)),
-                ..Default::default()
-            },
-        );
+    pub(crate) fn render(&mut self, update_render_state: UpdateRenderState) {
+        let inner_size = self.window.inner_size();
+        if inner_size != PhysicalSize::new(self.surface_config.width, self.surface_config.height) {
+            self.resize(inner_size);
+        }
+
+        self.render_state
+            .update_render_state(&self.device, &self.queue, update_render_state);
 
         let surface_texture = self
             .surface
@@ -331,5 +251,31 @@ impl RenderPipeline {
 
         self.window.pre_present_notify();
         surface_texture.present();
+    }
+
+    /// Gets the window `inner_size()`
+    pub fn get_window_size(&self) -> PhysicalSize<u32> {
+        self.window.inner_size()
+    }
+
+    /// Wrapper around `wgpu::Device::create_texture()`
+    pub fn create_texture(&self, texture_descriptor: &wgpu::TextureDescriptor) -> wgpu::Texture {
+        self.device.create_texture(texture_descriptor)
+    }
+
+    /// Wrapper around `wgpu::Queue::write_texture()`
+    pub fn write_texture(
+        &self,
+        texture: wgpu::TexelCopyTextureInfoBase<&wgpu::Texture>,
+        data: &[u8],
+        data_layout: wgpu::TexelCopyBufferLayout,
+        size: wgpu::Extent3d,
+    ) {
+        self.queue.write_texture(texture, data, data_layout, size);
+    }
+
+    /// Wrapper around `wgpu::Device::create_sampler()`
+    pub fn create_sampler(&self, sampler_descriptor: &wgpu::SamplerDescriptor) -> wgpu::Sampler {
+        self.device.create_sampler(sampler_descriptor)
     }
 }

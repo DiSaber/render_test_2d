@@ -1,9 +1,14 @@
+pub mod instance;
+pub mod render_app;
+pub mod render_pipeline;
+pub mod render_state;
+pub mod uniforms;
+
 mod array_buffer;
-mod instance;
-mod render_app;
-mod render_pipeline;
-mod render_state;
-mod uniforms;
 mod vertex;
 
-pub use {render_app::RenderApp, winit};
+pub use {glam, wgpu, winit};
+
+pub mod prelude {
+    pub use crate::{instance::*, render_app::*, render_pipeline::*, render_state::*, uniforms::*};
+}
