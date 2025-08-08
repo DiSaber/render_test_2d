@@ -91,56 +91,29 @@ impl<T> DenseStorage<T> {
     }
 }
 
-impl<T> Default for DenseStorage<T> {
-    fn default() -> Self {
-        Self::new()
-    }
-}
+type DenseStorageIter<'a, T> = std::iter::FilterMap<
+    std::iter::Enumerate<std::slice::Iter<'a, (u32, Option<T>)>>,
+    fn((usize, &(u32, Option<T>))) -> Option<(DenseStorageIndex<T>, &T)>,
+>;
 
-pub struct DenseStorageIter<'a, T> {
-    inner: std::iter::Enumerate<std::slice::Iter<'a, (u32, Option<T>)>>,
-}
-
-impl<'a, T> Iterator for DenseStorageIter<'a, T> {
-    type Item = (DenseStorageIndex<T>, &'a T);
-
-    fn next(&mut self) -> Option<Self::Item> {
-        while let Some((i, (generation, value))) = self.inner.next() {
-            if let Some(value) = value.as_ref() {
-                return Some((DenseStorageIndex::new(i, *generation), value));
-            }
-        }
-
-        None
-    }
-}
+type DenseStorageIntoIter<T> = std::iter::FilterMap<
+    std::iter::Enumerate<std::vec::IntoIter<(u32, Option<T>)>>,
+    fn((usize, (u32, Option<T>))) -> Option<(DenseStorageIndex<T>, T)>,
+>;
 
 impl<'a, T> IntoIterator for &'a DenseStorage<T> {
     type Item = (DenseStorageIndex<T>, &'a T);
     type IntoIter = DenseStorageIter<'a, T>;
 
     fn into_iter(self) -> Self::IntoIter {
-        DenseStorageIter {
-            inner: self.storage.iter().enumerate(),
-        }
-    }
-}
-
-pub struct DenseStorageIntoIter<T> {
-    inner: std::iter::Enumerate<std::vec::IntoIter<(u32, Option<T>)>>,
-}
-
-impl<T> Iterator for DenseStorageIntoIter<T> {
-    type Item = (DenseStorageIndex<T>, T);
-
-    fn next(&mut self) -> Option<Self::Item> {
-        while let Some((i, (generation, value))) = self.inner.next() {
-            if let Some(value) = value {
-                return Some((DenseStorageIndex::new(i, generation), value));
-            }
-        }
-
-        None
+        self.storage
+            .iter()
+            .enumerate()
+            .filter_map(|(i, (generation, value))| {
+                value
+                    .as_ref()
+                    .map(|value| (DenseStorageIndex::new(i, *generation), value))
+            })
     }
 }
 
@@ -149,8 +122,11 @@ impl<T> IntoIterator for DenseStorage<T> {
     type IntoIter = DenseStorageIntoIter<T>;
 
     fn into_iter(self) -> Self::IntoIter {
-        DenseStorageIntoIter {
-            inner: self.storage.into_iter().enumerate(),
-        }
+        self.storage
+            .into_iter()
+            .enumerate()
+            .filter_map(|(i, (generation, value))| {
+                value.map(|value| (DenseStorageIndex::new(i, generation), value))
+            })
     }
 }
