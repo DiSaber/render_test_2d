@@ -31,10 +31,15 @@ fn spawn_test_stuff(mut commands: Commands, mut textures: ResMut<Textures>) {
         data: vec![0, 0, 255, 255],
     });
 
-    commands.spawn((Transform::IDENTITY, Material::new(red_texture, sampler)));
+    commands.spawn((
+        Transform::IDENTITY,
+        Material::new(red_texture, sampler),
+        Visibility::Visible,
+    ));
     commands.spawn((
         Transform::from_translation(Vec3::new(1.0, 0.0, -1.0)).with_scale(Vec3::splat(2.0)),
         Material::new(blue_texture, sampler),
+        Visibility::Visible,
     ));
 }
 

@@ -11,6 +11,7 @@ use render::{
 use crate::{
     camera::Camera,
     prelude::{DenseStorageIndex, Material, Sampler, Texture, Textures},
+    visibility::Visibility,
 };
 
 pub(crate) fn init(world: &mut World) {
@@ -18,9 +19,11 @@ pub(crate) fn init(world: &mut World) {
 
     let transforms = SystemState::new(world);
     let materials = SystemState::new(world);
+    let visibility = SystemState::new(world);
     world.insert_resource(RemovedInstanceComponents {
         transforms,
         materials,
+        visibility,
     });
 }
 
@@ -109,7 +112,10 @@ pub(crate) fn update_render_state(
     }
 
     let instances_changed = world
-        .query_filtered::<(), Or<(Changed<Transform>, Changed<Material>)>>()
+        .query_filtered::<(), (
+            (With<Transform>, With<Material>, With<Visibility>),
+            Or<(Changed<Transform>, Changed<Material>, Changed<Visibility>)>,
+        )>()
         .iter(world)
         .next()
         .is_some();
@@ -117,6 +123,7 @@ pub(crate) fn update_render_state(
         |world: &mut World, mut removed_instance_components: Mut<RemovedInstanceComponents>| {
             !removed_instance_components.transforms.get(world).is_empty()
                 || !removed_instance_components.materials.get(world).is_empty()
+                || !removed_instance_components.visibility.get(world).is_empty()
         },
     );
 
@@ -125,9 +132,10 @@ pub(crate) fn update_render_state(
         world.try_resource_scope(|world, render_textures: Mut<RenderTextures>| {
             instances = Some(
                 world
-                    .query::<(&Transform, &Material)>()
+                    .query::<(&Transform, &Material, &Visibility)>()
                     .iter(world)
-                    .filter_map(|(transform, material)| {
+                    .filter(|&(_, _, visibility)| *visibility == Visibility::Visible)
+                    .filter_map(|(transform, material, _)| {
                         match (
                             render_textures.textures.get(&material.texture),
                             render_textures.samplers.get(&material.sampler),
@@ -161,4 +169,5 @@ struct RenderTextures {
 struct RemovedInstanceComponents {
     transforms: SystemState<RemovedComponents<'static, 'static, Transform>>,
     materials: SystemState<RemovedComponents<'static, 'static, Material>>,
+    visibility: SystemState<RemovedComponents<'static, 'static, Visibility>>,
 }
