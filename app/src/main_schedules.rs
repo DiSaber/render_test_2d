@@ -1,7 +1,4 @@
-use bevy_ecs::{
-    prelude::*,
-    schedule::{InternedScheduleLabel, ScheduleLabel},
-};
+use bevy_ecs::schedule::{InternedScheduleLabel, ScheduleLabel};
 
 /// The default schedule ran every frame before the `Update` schedule.
 #[derive(ScheduleLabel, Hash, PartialEq, Eq, Debug, Clone)]
@@ -29,12 +26,11 @@ pub struct Startup;
 pub struct PostStartup;
 
 /// The main schedule order that `App` uses to run systems.
-#[derive(Resource)]
 pub struct MainScheduleOrder {
-    /// Schedules that run before the render pipeline update.
-    pub before_pipeline_update: Vec<InternedScheduleLabel>,
-    /// Schedules that run after the render pipeline update.
-    pub after_pipeline_update: Vec<InternedScheduleLabel>,
+    /// Schedules that run before the render state update.
+    pub before_state_update: Vec<InternedScheduleLabel>,
+    /// Schedules that run after the render state update.
+    pub after_state_update: Vec<InternedScheduleLabel>,
     /// Schedules that run once on startup before anything else.
     pub startup: Vec<InternedScheduleLabel>,
 }
@@ -42,8 +38,8 @@ pub struct MainScheduleOrder {
 impl Default for MainScheduleOrder {
     fn default() -> Self {
         Self {
-            before_pipeline_update: vec![PreUpdate.intern(), Update.intern()],
-            after_pipeline_update: vec![PostUpdate.intern()],
+            before_state_update: vec![PreUpdate.intern(), Update.intern()],
+            after_state_update: vec![PostUpdate.intern()],
             startup: vec![PreStartup.intern(), Startup.intern(), PostStartup.intern()],
         }
     }

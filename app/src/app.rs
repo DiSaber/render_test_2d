@@ -10,6 +10,7 @@ use render::{
 pub struct App {
     world: World,
     window_attributes: Option<WindowAttributes>,
+    main_schedule_order: MainScheduleOrder,
 }
 
 impl App {
@@ -17,23 +18,12 @@ impl App {
     pub fn new() -> Self {
         let mut world = World::new();
 
-        world.init_resource::<MainScheduleOrder>();
         world.init_resource::<Textures>();
-
-        world.resource_scope(|world, main_schedule_order: Mut<MainScheduleOrder>| {
-            for label in main_schedule_order
-                .before_pipeline_update
-                .iter()
-                .chain(main_schedule_order.after_pipeline_update.iter())
-                .chain(main_schedule_order.startup.iter())
-            {
-                world.add_schedule(Schedule::new(*label));
-            }
-        });
 
         Self {
             world,
             window_attributes: None,
+            main_schedule_order: MainScheduleOrder::default(),
         }
     }
 
@@ -44,38 +34,37 @@ impl App {
         systems: impl IntoScheduleConfigs<ScheduleSystem, M>,
     ) {
         self.world
-            .resource_mut::<Schedules>()
+            .get_resource_or_init::<Schedules>()
             .entry(label)
             .add_systems(systems);
     }
 
     /// Runs the app.
     pub fn run(&mut self) -> Result<(), EventLoopError> {
-        self.world
-            .resource_scope(|world, main_schedule_order: Mut<MainScheduleOrder>| {
-                for &label in &main_schedule_order.startup {
-                    let _ = world.try_run_schedule(label);
-                }
+        for &label in &self.main_schedule_order.startup {
+            let _ = self.world.try_run_schedule(label);
+        }
 
-                let render = |delta_time: Duration, render_pipeline: &mut RenderPipeline| {
-                    world.insert_resource(DeltaTime(delta_time));
+        let render = |delta_time: Duration, render_pipeline: &mut RenderPipeline| {
+            self.world.insert_resource(DeltaTime(delta_time));
 
-                    for &label in &main_schedule_order.before_pipeline_update {
-                        let _ = world.try_run_schedule(label);
-                    }
+            for &label in &self.main_schedule_order.before_state_update {
+                let _ = self.world.try_run_schedule(label);
+            }
 
-                    let update_render_state = update_render_state(render_pipeline, world);
-                    render_pipeline.render(update_render_state);
+            let update_render_state = update_render_state(render_pipeline, &mut self.world);
+            render_pipeline.render(update_render_state);
 
-                    for &label in &main_schedule_order.after_pipeline_update {
-                        let _ = world.try_run_schedule(label);
-                    }
-                };
+            for &label in &self.main_schedule_order.after_state_update {
+                let _ = self.world.try_run_schedule(label);
+            }
 
-                RenderApp::new(render)
-                    .with_window_attributes(self.window_attributes.take())
-                    .run_app()
-            })
+            self.world.clear_trackers();
+        };
+
+        RenderApp::new(render)
+            .with_window_attributes(self.window_attributes.take())
+            .run_app()
     }
 
     /// Sets the window attributes.
