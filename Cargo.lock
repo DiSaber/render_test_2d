@@ -2003,6 +2003,7 @@ name = "render_test_2d"
 version = "0.1.0"
 dependencies = [
  "app",
+ "bevy_ecs",
 ]
 
 [[package]]

@@ -1,6 +1,10 @@
 use std::time::Duration;
 
-use crate::{main_schedules::*, prelude::Textures, update_render_state::update_render_state};
+use crate::{
+    main_schedules::*,
+    prelude::Textures,
+    update_render_state::{self, update_render_state},
+};
 use bevy_ecs::{prelude::*, schedule::ScheduleLabel, system::ScheduleSystem};
 use render::{
     prelude::*,
@@ -18,6 +22,7 @@ impl App {
     pub fn new() -> Self {
         let mut world = World::new();
 
+        update_render_state::init(&mut world);
         world.init_resource::<Textures>();
 
         Self {

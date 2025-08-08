@@ -1,6 +1,6 @@
 use std::collections::HashMap;
 
-use bevy_ecs::prelude::*;
+use bevy_ecs::{prelude::*, system::SystemState};
 use bevy_transform::components::Transform;
 use render::{
     glam::Mat4,
@@ -12,6 +12,17 @@ use crate::{
     camera::Camera,
     prelude::{DenseStorageIndex, Material, Sampler, Texture, Textures},
 };
+
+pub(crate) fn init(world: &mut World) {
+    world.init_resource::<RenderTextures>();
+
+    let transforms = SystemState::new(world);
+    let materials = SystemState::new(world);
+    world.insert_resource(RemovedInstanceComponents {
+        transforms,
+        materials,
+    });
+}
 
 pub(crate) fn update_render_state(
     render_pipeline: &mut RenderPipeline,
@@ -97,14 +108,20 @@ pub(crate) fn update_render_state(
         });
     }
 
-    let mut instances = None;
-    if world
+    let instances_changed = world
         .query_filtered::<(), Or<(Changed<Transform>, Changed<Material>)>>()
         .iter(world)
         .next()
-        .is_some()
-        || textures.is_some()
-    {
+        .is_some();
+    let instances_removed = world.resource_scope(
+        |world: &mut World, mut removed_instance_components: Mut<RemovedInstanceComponents>| {
+            !removed_instance_components.transforms.get(world).is_empty()
+                || !removed_instance_components.materials.get(world).is_empty()
+        },
+    );
+
+    let mut instances = None;
+    if instances_changed || instances_removed || textures.is_some() {
         world.try_resource_scope(|world, render_textures: Mut<RenderTextures>| {
             instances = Some(
                 world
@@ -134,8 +151,14 @@ pub(crate) fn update_render_state(
     }
 }
 
-#[derive(Resource)]
+#[derive(Default, Resource)]
 struct RenderTextures {
     textures: HashMap<DenseStorageIndex<Texture>, u32>,
     samplers: HashMap<DenseStorageIndex<Sampler>, u32>,
+}
+
+#[derive(Resource)]
+struct RemovedInstanceComponents {
+    transforms: SystemState<RemovedComponents<'static, 'static, Transform>>,
+    materials: SystemState<RemovedComponents<'static, 'static, Material>>,
 }

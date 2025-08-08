@@ -8,6 +8,7 @@ edition = "2024"
 
 [dependencies]
 app = { path = "./app" }
+bevy_ecs = "0.16.1"
 
 [profile.release]
 lto = "fat"
