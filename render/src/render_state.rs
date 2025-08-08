@@ -194,14 +194,14 @@ impl RenderState {
         &mut self,
         device: &wgpu::Device,
         queue: &wgpu::Queue,
-        update_render_state: UpdateRenderState,
+        update_render_state: &UpdateRenderState,
     ) {
         if let Some(uniforms) = update_render_state.uniforms {
             queue.write_buffer(&self.uniform_buffer, 0, bytemuck::cast_slice(&[uniforms]));
         }
 
-        if let Some(instances) = update_render_state.instances {
-            if self.instance_buffer.write_buffer(device, queue, &instances) {
+        if let Some(instances) = &update_render_state.instances {
+            if self.instance_buffer.write_buffer(device, queue, instances) {
                 // Buffer was resized, remake the bind group
                 self.instance_bind_group = device.create_bind_group(&wgpu::BindGroupDescriptor {
                     label: Some("Instance Bind Group"),
@@ -219,7 +219,7 @@ impl RenderState {
             }
         }
 
-        if let Some((textures, samplers)) = update_render_state.textures {
+        if let Some((textures, samplers)) = &update_render_state.textures {
             self.texture_bind_group = device.create_bind_group(&wgpu::BindGroupDescriptor {
                 label: Some("Texture Bind Group"),
                 entries: &[
@@ -278,6 +278,7 @@ impl RenderState {
 /// Used to update a `RenderState` with new data. Any `None` fields will be left untouched.
 #[derive(Debug, Clone, Default)]
 pub struct UpdateRenderState {
+    pub clear_color: wgpu::Color,
     pub uniforms: Option<Uniforms>,
     pub instances: Option<Vec<Instance>>,
     pub textures: Option<(Vec<wgpu::TextureView>, Vec<wgpu::Sampler>)>,

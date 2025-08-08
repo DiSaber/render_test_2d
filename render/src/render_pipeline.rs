@@ -180,14 +180,14 @@ impl RenderPipeline {
     }
 
     /// Uses the current `RenderState` to draw a frame to the window.
-    pub(crate) fn render(&mut self, update_render_state: UpdateRenderState) {
+    pub fn render(&mut self, update_render_state: UpdateRenderState) {
         let inner_size = self.window.inner_size();
         if inner_size != PhysicalSize::new(self.surface_config.width, self.surface_config.height) {
             self.resize(inner_size);
         }
 
         self.render_state
-            .update_render_state(&self.device, &self.queue, update_render_state);
+            .update_render_state(&self.device, &self.queue, &update_render_state);
 
         let surface_texture = self
             .surface
@@ -211,12 +211,7 @@ impl RenderPipeline {
                     depth_slice: None,
                     resolve_target: None,
                     ops: wgpu::Operations {
-                        load: wgpu::LoadOp::Clear(wgpu::Color {
-                            r: 0.1,
-                            g: 0.2,
-                            b: 0.3,
-                            a: 1.0,
-                        }),
+                        load: wgpu::LoadOp::Clear(update_render_state.clear_color),
                         store: wgpu::StoreOp::Store,
                     },
                 })],

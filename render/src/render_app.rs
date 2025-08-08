@@ -11,45 +11,42 @@ use winit::{
     window::{Window, WindowAttributes, WindowId},
 };
 
-use crate::{render_pipeline::RenderPipeline, render_state::UpdateRenderState};
+use crate::render_pipeline::RenderPipeline;
 
 /// Manages the winit event loop and `RenderPipeline`.
-pub struct RenderApp<T, U>
+pub struct RenderApp<T>
 where
-    T: FnMut(Duration, &mut RenderPipeline) -> UpdateRenderState,
-    U: FnMut(Duration),
+    T: FnMut(Duration, &mut RenderPipeline),
 {
     /// Initial window attributes.
     window_attributes: Option<WindowAttributes>,
-    /// Function that runs before the frame is drawn.
-    before_render: T,
-    /// Function that runs after the frame is drawn.
-    after_render: U,
+    /// Function that runs when a frame is ready to be drawn (call `RenderPipeline::render()` to
+    /// draw the frame).
+    render: T,
     /// The last instant the window was drawn to.
     last_render: Instant,
     /// The current window and its render pipeline.
     render_pipeline: Option<(Arc<Window>, RenderPipeline)>,
 }
 
-impl<T, U> RenderApp<T, U>
+impl<T> RenderApp<T>
 where
-    T: FnMut(Duration, &mut RenderPipeline) -> UpdateRenderState,
-    U: FnMut(Duration),
+    T: FnMut(Duration, &mut RenderPipeline),
 {
-    /// Creates a new render app with update loop callbacks that are executed before and after rendering.
-    pub fn new(before_render: T, after_render: U) -> Self {
+    /// Creates a new render app with a render callback when a frame is ready to be drawn (call `RenderPipeline::render()` to
+    /// draw the frame).
+    pub fn new(render: T) -> Self {
         Self {
             window_attributes: None,
-            before_render,
-            after_render,
+            render,
             last_render: Instant::now(),
             render_pipeline: None,
         }
     }
 
     /// Sets the window attributes.
-    pub fn with_window_attributes(mut self, window_attributes: WindowAttributes) -> Self {
-        self.window_attributes = Some(window_attributes);
+    pub fn with_window_attributes(mut self, window_attributes: Option<WindowAttributes>) -> Self {
+        self.window_attributes = window_attributes;
         self
     }
 
@@ -61,10 +58,9 @@ where
     }
 }
 
-impl<T, U> ApplicationHandler for RenderApp<T, U>
+impl<T> ApplicationHandler for RenderApp<T>
 where
-    T: FnMut(Duration, &mut RenderPipeline) -> UpdateRenderState,
-    U: FnMut(Duration),
+    T: FnMut(Duration, &mut RenderPipeline),
 {
     fn resumed(&mut self, _: &ActiveEventLoop) {}
 
@@ -100,11 +96,7 @@ where
                 let elapsed = self.last_render.elapsed();
                 self.last_render = Instant::now();
 
-                let update_render_state = (self.before_render)(elapsed, render_pipeline);
-
-                render_pipeline.render(update_render_state);
-
-                (self.after_render)(elapsed);
+                (self.render)(elapsed, render_pipeline);
 
                 window.request_redraw();
             }

@@ -1,0 +1,9 @@
+[package]
+name = "app"
+version = "0.1.0"
+edition = "2024"
+
+[dependencies]
+bevy_ecs = "0.16.1"
+bevy_transform = "0.16.1"
+render = { path = "../render" }

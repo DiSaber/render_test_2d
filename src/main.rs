@@ -1,113 +1,51 @@
-use std::time::Duration;
-
-use render::{
-    glam::{Mat4, Quat, Vec3},
+use app::{
+    bevy_ecs::prelude::*,
+    bevy_transform::components::Transform,
     prelude::*,
-    wgpu,
-    winit::window::WindowAttributes,
+    render::{glam::Vec3, wgpu, winit::window::WindowAttributes},
 };
 
-const VERTICAL_SCALE: f32 = 5.0;
+fn spawn_test_stuff(mut commands: Commands, mut textures: ResMut<Textures>) {
+    commands.spawn(Camera {
+        vertical_scale: 5.0,
+        near_clip: -10.0,
+        far_clip: 10.0,
+        clear_color: wgpu::Color {
+            r: 0.1,
+            g: 0.2,
+            b: 0.3,
+            a: 1.0,
+        },
+    });
+
+    let samplers = textures.get_samplers_mut();
+    let sampler = samplers.push(Sampler);
+
+    let textures = textures.get_textures_mut();
+    let red_texture = textures.push(Texture {
+        size: (1, 1),
+        data: vec![255, 0, 0, 255],
+    });
+    let blue_texture = textures.push(Texture {
+        size: (1, 1),
+        data: vec![0, 0, 255, 255],
+    });
+
+    commands.spawn((Transform::IDENTITY, Material::new(red_texture, sampler)));
+    commands.spawn((
+        Transform::from_translation(Vec3::new(1.0, 0.0, -1.0)).with_scale(Vec3::splat(2.0)),
+        Material::new(blue_texture, sampler),
+    ));
+}
 
 fn main() {
-    let mut first_run = false;
-    let before_render = |_delta_time: Duration, render_pipeline: &mut RenderPipeline| {
-        let window_size = render_pipeline.get_window_size();
-        let aspect_ratio = window_size.width as f32 / window_size.height as f32;
-        let uniforms = Uniforms::new(
-            Mat4::from_translation(Vec3::new(1.0, 1.0, 0.0)),
-            Mat4::orthographic_rh(
-                -aspect_ratio * VERTICAL_SCALE * 0.5,
-                aspect_ratio * VERTICAL_SCALE * 0.5,
-                -VERTICAL_SCALE * 0.5,
-                VERTICAL_SCALE * 0.5,
-                -10.0,
-                10.0,
-            ),
-        );
-
-        let mut instances = None;
-        let mut textures = None;
-        if !first_run {
-            let size = 1;
-            let texture_extent = wgpu::Extent3d {
-                width: size,
-                height: size,
-                depth_or_array_layers: 1,
-            };
-            let texture1 = render_pipeline.create_texture(&wgpu::TextureDescriptor {
-                label: None,
-                size: texture_extent,
-                mip_level_count: 1,
-                sample_count: 1,
-                dimension: wgpu::TextureDimension::D2,
-                format: wgpu::TextureFormat::Rgba8UnormSrgb,
-                usage: wgpu::TextureUsages::TEXTURE_BINDING | wgpu::TextureUsages::COPY_DST,
-                view_formats: &[],
-            });
-            let texture_view1 = texture1.create_view(&wgpu::TextureViewDescriptor::default());
-            render_pipeline.write_texture(
-                texture1.as_image_copy(),
-                &[255, 0, 0, 255],
-                wgpu::TexelCopyBufferLayout {
-                    offset: 0,
-                    bytes_per_row: Some(4),
-                    rows_per_image: None,
-                },
-                texture_extent,
-            );
-            let texture2 = render_pipeline.create_texture(&wgpu::TextureDescriptor {
-                label: None,
-                size: texture_extent,
-                mip_level_count: 1,
-                sample_count: 1,
-                dimension: wgpu::TextureDimension::D2,
-                format: wgpu::TextureFormat::Rgba8UnormSrgb,
-                usage: wgpu::TextureUsages::TEXTURE_BINDING | wgpu::TextureUsages::COPY_DST,
-                view_formats: &[],
-            });
-            let texture_view2 = texture2.create_view(&wgpu::TextureViewDescriptor::default());
-            render_pipeline.write_texture(
-                texture2.as_image_copy(),
-                &[0, 0, 255, 255],
-                wgpu::TexelCopyBufferLayout {
-                    offset: 0,
-                    bytes_per_row: Some(4),
-                    rows_per_image: None,
-                },
-                texture_extent,
-            );
-            let sampler = render_pipeline.create_sampler(&wgpu::SamplerDescriptor::default());
-
-            instances = Some(vec![
-                Instance::new(Mat4::IDENTITY, 0, 0),
-                Instance::new(
-                    Mat4::from_scale_rotation_translation(
-                        Vec3::splat(2.0),
-                        Quat::IDENTITY,
-                        Vec3::new(1.0, 0.0, -1.0),
-                    ),
-                    1,
-                    0,
-                ),
-            ]);
-            textures = Some((vec![texture_view1, texture_view2], vec![sampler]));
-        }
-
-        first_run = true;
-
-        UpdateRenderState {
-            uniforms: Some(uniforms),
-            instances,
-            textures,
-        }
-    };
-
-    let mut render_app = RenderApp::new(before_render, |_| {}).with_window_attributes(
+    let mut app = App::new().with_window_attributes(Some(
         WindowAttributes::default()
             .with_title("Render Test 2d")
             .with_resizable(true),
-    );
+    ));
 
-    render_app.run_app().unwrap();
+    app.add_systems(Startup, spawn_test_stuff);
+
+    app.run().unwrap();
 }
