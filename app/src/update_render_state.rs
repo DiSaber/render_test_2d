@@ -1,7 +1,8 @@
 use std::collections::HashMap;
 
-use bevy_ecs::{prelude::*, system::SystemState};
+use bevy_ecs::{entity::EntityHashSet, prelude::*, system::SystemState};
 use bevy_transform::components::Transform;
+use derive_more::{Deref, DerefMut};
 use render::{
     glam::Mat4,
     prelude::{Instance, RenderPipeline, Uniforms, UpdateRenderState},
@@ -15,6 +16,7 @@ use crate::{
 };
 
 pub(crate) fn init(world: &mut World) {
+    world.init_resource::<RenderInstances>();
     world.init_resource::<RenderTextures>();
 
     let transforms = SystemState::new(world);
@@ -121,33 +123,33 @@ pub(crate) fn update_render_state(
         .is_some();
     let instances_removed = world.resource_scope(
         |world: &mut World, mut removed_instance_components: Mut<RemovedInstanceComponents>| {
-            !removed_instance_components.transforms.get(world).is_empty()
-                || !removed_instance_components.materials.get(world).is_empty()
-                || !removed_instance_components.visibility.get(world).is_empty()
+            removed_instance_components.any_render_components_removed(world)
         },
     );
 
     let mut instances = None;
     if instances_changed || instances_removed || textures.is_some() {
         world.try_resource_scope(|world, render_textures: Mut<RenderTextures>| {
-            instances = Some(
-                world
-                    .query::<(&Transform, &Material, &Visibility)>()
-                    .iter(world)
-                    .filter(|&(_, _, visibility)| *visibility == Visibility::Visible)
-                    .filter_map(|(transform, material, _)| {
-                        match (
-                            render_textures.textures.get(&material.texture),
-                            render_textures.samplers.get(&material.sampler),
-                        ) {
-                            (Some(&texture), Some(&sampler)) => {
-                                Some(Instance::new(transform.compute_matrix(), texture, sampler))
-                            }
-                            _ => None,
-                        }
-                    })
-                    .collect(),
-            );
+            let (render_instances, gpu_instances) = world
+                .query::<(Entity, &Transform, &Material, &Visibility)>()
+                .iter(world)
+                .filter(|&(_, _, _, visibility)| *visibility == Visibility::Visible)
+                .filter_map(|(entity, transform, material, _)| {
+                    match (
+                        render_textures.textures.get(&material.texture),
+                        render_textures.samplers.get(&material.sampler),
+                    ) {
+                        (Some(&texture), Some(&sampler)) => Some((
+                            entity,
+                            Instance::new(transform.compute_matrix(), texture, sampler),
+                        )),
+                        _ => None,
+                    }
+                })
+                .unzip();
+
+            world.insert_resource(RenderInstances(render_instances));
+            instances = Some(gpu_instances);
         });
     }
 
@@ -158,6 +160,9 @@ pub(crate) fn update_render_state(
         textures,
     }
 }
+
+#[derive(Default, Deref, DerefMut, Resource)]
+struct RenderInstances(pub EntityHashSet);
 
 #[derive(Default, Resource)]
 struct RenderTextures {
@@ -170,4 +175,34 @@ struct RemovedInstanceComponents {
     transforms: SystemState<RemovedComponents<'static, 'static, Transform>>,
     materials: SystemState<RemovedComponents<'static, 'static, Material>>,
     visibility: SystemState<RemovedComponents<'static, 'static, Visibility>>,
+}
+
+impl RemovedInstanceComponents {
+    /// Checks if any render components were removed using `RenderInstances`
+    fn any_render_components_removed(&mut self, world: &mut World) -> bool {
+        world.resource_scope(
+            |world: &mut World, render_instances: Mut<RenderInstances>| {
+                self.transforms
+                    .get(world)
+                    .read()
+                    .filter(|entity| render_instances.contains(entity))
+                    .next()
+                    .is_some()
+                    || self
+                        .materials
+                        .get(world)
+                        .read()
+                        .filter(|entity| render_instances.contains(entity))
+                        .next()
+                        .is_some()
+                    || self
+                        .visibility
+                        .get(world)
+                        .read()
+                        .filter(|entity| render_instances.contains(entity))
+                        .next()
+                        .is_some()
+            },
+        )
+    }
 }

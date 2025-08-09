@@ -4,6 +4,7 @@ version = "0.1.0"
 edition = "2024"
 
 [dependencies]
+render = { path = "../render" }
 bevy_ecs = "0.16.1"
 bevy_transform = "0.16.1"
-render = { path = "../render" }
+derive_more = { version = "2.0.1", features = ["deref", "deref_mut"] }
